@@ -13,7 +13,7 @@ SKIP_PYTHON=0
 update_py_packages() {
     PYTHONBIN=$(which python2.7)
     resources="require.txt"
-    if [ "$dist" == "el6" ] || [ "$dist" == "debian8" ]; then
+    if [ "$dist" == "el6" ] || [ "$dist" == "el7" ] || [ "$dist" == "debian8" ]; then
         resources="require.dep.txt"
     fi
 
@@ -106,7 +106,9 @@ install_prereqs() {
 
     # Install bundled Python version from source
     if [ $SKIP_PYTHON -eq 0 ]; then
-        wget https://www.python.org/ftp/python/$PYTHONVERSION/$PYTHONTAR.tgz
+        if [ ! -f $PYTHONTAR.tgz ]; then
+            wget https://www.python.org/ftp/python/$PYTHONVERSION/$PYTHONTAR.tgz
+        fi
         tar xf $PYTHONTAR.tgz
         cd $PYTHONTAR
         ./configure LDFLAGS='-Wl,-rpath,\$${ORIGIN} -Wl,-rpath,\$${ORIGIN}/lib' && make && make altinstall
@@ -134,7 +136,7 @@ install_prereqs() {
 
 
     # Install pip
-    cd /tmp && wget --no-check-certificate https://bootstrap.pypa.io/get-pip.py && $PYTHONBIN /tmp/get-pip.py
+    cd /tmp && wget --no-check-certificate https://raw.githubusercontent.com/pypa/get-pip/master/2.7/get-pip.py && $PYTHONBIN /tmp/get-pip.py
 
     # Install modules
     update_py_packages

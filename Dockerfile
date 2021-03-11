@@ -2,10 +2,9 @@ FROM debian:buster
 
 RUN apt-get update && \
     apt-get -y install git curl && \
-    git clone https://github.com/mhzawadi/ncpa.git /ncpa && \
-    curl -O 'https://raw.githubusercontent.com/tavinus/cloudsend.sh/master/cloudsend.sh' && \
-    chmod +x /cloudsend.sh;
+    git clone https://github.com/mhzawadi/ncpa.git /ncpa;
 
 COPY start.sh /start.sh
+COPY cloudsend.sh /cloudsend.sh
 
 ENTRYPOINT ["/start.sh"]

@@ -1,7 +1,7 @@
 FROM debian:buster
 
 RUN apt-get update && \
-    apt-get -y install git && \
+    apt-get -y install git curl && \
     git clone https://github.com/mhzawadi/ncpa.git /ncpa && \
     cd /ncpa/ && \
     echo 'y' | build/build.sh && \

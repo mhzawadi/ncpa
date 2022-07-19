@@ -114,7 +114,7 @@ elif [ "$UNAME" == "AIX" ]; then
     . $BUILD_DIR/aix/setup.sh
 elif [ "$UNAME" == "Darwin" ]; then
     . $BUILD_DIR/osx/setup.sh
-else 
+else
     echo "Not a supported system for our build script."
     echo "If you're sure all pre-reqs are installed, try running the"
     echo "build without setup: ./build.sh --build-only"
@@ -168,7 +168,7 @@ cat /dev/null > $AGENT_DIR/var/log/ncpa_listener.log
 
 (
     cd $AGENT_DIR
-    $PYTHONBIN setup_posix.py build_exe > $BUILD_DIR/build.log
+    $PYTHONBIN setup.py build_exe > $BUILD_DIR/build.log
 
     # Move the ncpa binary data
     cd $BUILD_DIR

@@ -7,9 +7,6 @@ Building NCPA
 Building with Docker
 ====================
 
-- First make the image: `docker build -t ncpa/maker .`
-- next run the image to build: `docker run -it --rm --name ncpa -v /sys/fs/cgroup:/sys/fs/cgroup:ro ncpa/maker`
-
 Building on Windows
 ===================
 
@@ -18,8 +15,8 @@ must be executed by cmd.exe. For this reason, any Windows commands
 listed in this document will be written with cmd.exe compatibility
 in mind.*
 
-Prerequisites
--------------
+**Prerequisites for Windows** (Installing some of these prerequisites requires admin rights)
+-------------------------
 
 * `Git for Windows <https://git-scm.com/download/win>`_
 * Python 3.9.x (32-Bit) (`Download <https://www.python.org/downloads/>`_)
@@ -53,6 +50,12 @@ Install Prerequisites
 
   1. Download and run the installer. (`see prerequisites <https://github.com/NagiosEnterprises/ncpa/blob/master/BUILDING.rst#prerequisites>`_)
 
+* pywin32
+
+  1. Download and run the installer (`see prerequisites <https://github.com/NagiosEnterprises/ncpa/blob/master/BUILDING.rst#prerequisites>`_)
+
+  If the installer says python isn't in the registry, then the installer doesn't match your python (which should be 2.7.16 32-bit).
+
 * pip
 
   * Pip is installed by default but should be updated before continuing::
@@ -77,15 +80,15 @@ Run the build script::
 Building on Linux
 =================
 
-Building from most Linux distros is much less complicated than Windows. We have a
-couple helpful scripts that make it much easier. *We will assume you have wget and git installed*
+Building on CentOS 7 is the easiest way to get a working package for all Linux distributions except the SuSE variants which seem to build most easily on openSuSE 15 Leap, and SLES 15. For Ubuntu/Debian, you will need copy the generated .rpm to an Ubuntu system (20.04 recommended) with alien installed and run alien to create a .deb file that will work on all of the supported distributions.
 
 *WARNING: DO THIS ON A VM OR NOT A PRODUCTION SYSTEM*
 
 To start, clone the repository in your directory::
 
-  cd ~
-  git clone https://github.com/NagiosEnterprises/ncpa
+The CentOS 7 build flow (for all non-SuSE linux)
+-------------------------------------------------
+  **Clone the git repo on a CentOS 7 machine** (*It must have wget and git installed*)::
 
 Now run the setup scripts to install the requirements::
 
@@ -96,8 +99,47 @@ Follow the prompts to setup the system. When running the build.sh script it will
 the system and build the ncpa binary.
 
 
-Building on Mac OS X
-====================
+  **SLES**
+
+  On SLES 15, the build script fails because rpm-build is no longer available in the zypper repositories. Hence, this process is not really recommended, but it is provided for those useers for whom building on older versions of SLES is necessary.
+
+  **Clone the repo as for OpenSuSE above.**
+
+  **Edit linux/setup.sh and remove "rpm-build" from line 49**
+
+  **Run build script to install the requirements and build an archive**
+
+  The script will die when it tries to invoke rpm-build leaving a compressed tarball in the build directory, e.g., ncpa-2.4.1.tar.gz.
+
+  **Copy this .gz into the build dir of the ncpa repo on another distrbution that that has rpm-build available, .e.g, a CentOS 7 VM.**
+
+  **Select the proper .spec file, as for OpenSuSE above.**
+
+  **From the build directory, run linux/package.sh**
+
+  An rpm, e.g., ncpa-2.4.1-sle15.x86_64.rpm, will be generated.
+
+
+**Install on the target Linux server**
+--------------------------------
+
+  Copy the resulting ~/ncpa/build/ncpa-2.x.x-1.elx.x86_64.rpm or ncpa_2.4.1-1.el7_amd64.deb to the desired server and install using the appropriate package system:
+
+  On CentOs/RHEL::
+
+    yum install ./ncpa-2.x.x-1.elx.x86_64.rpm
+
+  On Ubuntu/Debian::
+
+    apt install ./ncpa_2.4.1-1.el7_amd64.deb
+
+  On OpenSuSE/SLES::
+
+    zypper install ./ncpa_2.4.1-1.el7_amd64.deb
+
+
+Building on MacOS
+=================
 
 Working on this section. It's basically the same as Linux, however you may need to
 install the libraries and python differently, due to it being macOS. You must have

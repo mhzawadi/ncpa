@@ -1,27 +1,8 @@
 Changelog
 +++++++++
 
-<<<<<<< HEAD
 3.0.0 - 2022-??-??
 ==================
-
-**Additions**
-
-- The python interpreter has been included as a binary file to run scripts through (some restrictions apply)
-- Configs can be written from inside the ncpa web GUI
-
-**Updates**
-
-- Updated the version of Python to 3.6.x
-- The listener and passive services/daemons are now combined into one service/daemon called ncpa
-- Systems with systemd now use a service definition instead of init.d script
-- Changed the date format in the changelog (#838) (ccztux)
-
-**Bug Fixes**
-
-- Fixed errors from different language encodings due to python not being able to encode/decode strings
-
-2.4.0 - 2021-12-16
 ==================
 - Added new disk metrics max_file_length and max_path_length (#760) (ccztux)
 - Added php and perl to the default plugin extensions (#766) (ccztux)

@@ -21,9 +21,9 @@
 # Get this script to current folder with:
 # curl -O 'https://raw.githubusercontent.com/tavinus/cloudsend.sh/master/cloudsend.sh' && chmod +x cloudsend.sh
 #
-# NOTE: Cloudsend 2 changed the way password is handled and 
+# NOTE: Cloudsend 2 changed the way password is handled and
 # is NOT compatible with cloudsend 1 calls. The -e parameter
-# now does what -p parameter did (environment passwords), 
+# now does what -p parameter did (environment passwords),
 # while the -p parameter receives the password directly.
 #
 ############################################################
@@ -242,10 +242,10 @@ parseOptions() {
                                         CLOUDSEND_PARAMS=("${CLOUDSEND_PARAMS[@]}" "$1")
                                         shift ;
                                 fi
-                                        
+
                 esac
         done
-        
+
         CLOUDURL=''
         FILENAME="${CLOUDSEND_PARAMS[0]}"
         CLOUDSHARE="${CLOUDSEND_PARAMS[1]}"
@@ -258,7 +258,7 @@ parseOptions() {
         fi
 
         FOLDERTOKEN="${CLOUDSHARE##*/s/}"
-        
+
         if isGlobbing; then
                 if isRenaming; then
                         initError $'Cannot rename output files when using globbing on input.\nAll files would get the same output name and then be overwritten.\nSend individual files if you need renaming.'
@@ -389,7 +389,7 @@ isPiped() {
         if [ "$1" = '-' ] || [ "$1" = '.' ] ; then
                 return $TRUE
         fi
-        return $FALSE        
+        return $FALSE
 }
 
 
@@ -441,7 +441,7 @@ rawUrlEncode() {
                 esac
                 encoded+="${o}"
         done
-        echo "${encoded}"    # You can either set a return variable (FASTER) 
+        echo "${encoded}"    # You can either set a return variable (FASTER)
         REPLY="${encoded}"   #+or echo the result (EASIER)... or both... :p
 }
 
@@ -460,7 +460,7 @@ escapeWhitespaces() {
                 esac
                 encoded+="${o}"
         done
-        echo "${encoded}"    # You can either set a return variable (FASTER) 
+        echo "${encoded}"    # You can either set a return variable (FASTER)
         REPLY="${encoded}"   #+or echo the result (EASIER)... or both... :p
 
 }
@@ -521,7 +521,7 @@ sendDir() {
         # MacOS / BSD readlink does not have the -f option
         # Get bash implementation from pdfScale.sh if needed
         # For now PWD seems to be enough
-        if [[ "$fbn" == '.' ]]; then 
+        if [[ "$fbn" == '.' ]]; then
                 fbn="$PWD"
                 fbn="$("$BASENAMEBIN" "$fbn")"
         fi
@@ -530,7 +530,7 @@ sendDir() {
 
         # Create main/root folder that is being sent
         createDir "$fbn"
-        
+
         # Create whole directory tree at destination
         for d in "${DIRLIST[@]}"; do
                 if ! isEmpty "$d"; then
@@ -539,9 +539,9 @@ sendDir() {
         done
 
         log $'\n'"SENDING ALL FILES FROM FOLDER TREE"$'\n'"=================================="$'\n'
-        
+
         # Send all files to their destinations
-        for f in "${FILELIST[@]}"; do 
+        for f in "${FILELIST[@]}"; do
                 if ! isEmpty "$f"; then
                         OUTFILE="$fbn/$f"
                         log "$OUTFILE > "
@@ -558,7 +558,7 @@ logResult() {
         local fileString="$("$BASENAMEBIN" "$FILENAME")"
         isRenaming && fileString="$("$BASENAMEBIN" "$FILENAME") (renamed as $OUTFILE)"
         log $'\n'"SUMMARY"$'\n'"======="$'\n'
-                  
+
         if [ $CURLEXIT -eq 0 ]; then
                 log " > All Curl calls exited without errors"$'\n'" > Attempt to send completed > $fileString"
                 exit 0
@@ -575,7 +575,7 @@ sendFile() {
         elif isEmpty "$OUTFILE"; then # If we are not renaming, use the input file name
                 OUTFILE="$("$BASENAMEBIN" "$1")"
         fi
-        
+
         getScreenSize
         eout="$(escapeWhitespaces "$OUTFILE")"
         # Send file

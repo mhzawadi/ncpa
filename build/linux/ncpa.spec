@@ -31,9 +31,9 @@ mkdir -p %{buildroot}/usr/local
 cp -rf $RPM_BUILD_DIR/ncpa-%{version} %{buildroot}/usr/local/ncpa
 mkdir -p %{buildroot}/usr/local/ncpa/var/run
 mkdir -p %{buildroot}/etc/init.d
-chown -R nagios:nagios %{buildroot}/usr/local/ncpa
-install -m 755 $RPM_BUILD_DIR/ncpa-%{version}/build_resources/listener_init %{buildroot}/etc/init.d/ncpa_listener
-install -m 755 $RPM_BUILD_DIR/ncpa-%{version}/build_resources/passive_init %{buildroot}/etc/init.d/ncpa_passive
+touch %{buildroot}/usr/local/ncpa/var/ncpa.db
+chown nagios:nagios %{buildroot}/usr/local/ncpa -R
+install -m 755 $RPM_BUILD_DIR/ncpa-%{version}/build_resources/default-init %{buildroot}/etc/init.d/ncpa
 
 %clean
 rm -rf %{buildroot}
@@ -43,9 +43,11 @@ if command -v systemctl > /dev/null
 then
     systemctl stop ncpa_listener &> /dev/null || true
     systemctl stop ncpa_passive &> /dev/null || true
+    systemctl stop ncpa &> /dev/null || true
 else
     service ncpa_listener stop &> /dev/null || true
     service ncpa_passive stop &> /dev/null || true
+    service ncpa stop &> /dev/null || true
 fi
 
 if ! getent group nagios > /dev/null
@@ -65,14 +67,10 @@ else
 fi
 
 %post
-if command -v chkconfig > /dev/null
-then
-    chkconfig --level 3,5 --add ncpa_listener &> /dev/null
-    chkconfig --level 3,5 --add ncpa_passive &> /dev/null
-elif command -v update-rc.d > /dev/null
-then
-    update-rc.d ncpa_listener defaults &> /dev/null
-    update-rc.d ncpa_passive defaults &> /dev/null
+if which chkconfig > /dev/null; then
+    chkconfig --level 3,5 --add ncpa &> /dev/null
+elif which update-rc.d > /dev/null; then
+    update-rc.d ncpa defaults &> /dev/null
 fi
 
 if [ -z $RPM_INSTALL_PREFIX ]
@@ -82,8 +80,7 @@ fi
 
 # Set the directory inside the init scripts
 dir=$RPM_INSTALL_PREFIX/ncpa
-sed -i "s|_BASEDIR_|BASEDIR=\x22$dir\x22|" /etc/init.d/ncpa_listener
-sed -i "s|_BASEDIR_|BASEDIR=\x22$dir\x22|" /etc/init.d/ncpa_passive
+sed -i "s|_BASEDIR_|BASEDIR=\x22$dir\x22|" /etc/init.d/ncpa
 
 # Remove empty cert and key files
 if [ -f $RPM_INSTALL_PREFIX/ncpa/ncpa.crt ]
@@ -99,24 +96,19 @@ fi
 if command -v systemctl > /dev/null
 then
     systemctl daemon-reload
-    systemctl start ncpa_listener
-    systemctl start ncpa_passive
+    systemctl start ncpa
 else
-    service ncpa_listener start
-    service ncpa_passive start
+    service ncpa start
 fi
 
 %preun
 # Only stop on actual uninstall not upgrades
-if [ "$1" != "1" ]
-then
-    if command -v systemctl > /dev/null
-    then
-        systemctl stop ncpa_listener
-        systemctl stop ncpa_passive
+# TODO: Make upgrades from NCPA 2 -> 3 seemless (stop old services)
+if [ "$1" != "1" ]; then
+    if [ `command -v systemctl` ]; then
+        systemctl stop ncpa
     else
-        service ncpa_listener stop
-        service ncpa_passive stop
+        service ncpa stop
     fi
 fi
 
@@ -152,10 +144,8 @@ fi
 %files
 %defattr(0755,root,root,0755)
 %dir /usr/local/ncpa
-/usr/local/ncpa/ncpa_listener
-/usr/local/ncpa/ncpa_passive
-/etc/init.d/ncpa_listener
-/etc/init.d/ncpa_passive
+/usr/local/ncpa/ncpa
+/etc/init.d/ncpa
 
 %defattr(0755,root,root,0755)
 /usr/local/ncpa/*.so*

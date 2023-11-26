@@ -1,19 +1,17 @@
-# -*- coding: utf-8 -*-
-
-import nodes
+import listener.nodes
 import platform
 import re
 import subprocess
 import tempfile
 import os
 import psutil
-import server
-import database
+import listener.server
+import listener.database as database
 import time
 import logging
-import Queue
 from stat import ST_MODE,S_IXUSR,S_IXGRP,S_IXOTH
 from threading import Timer
+
 
 def filter_services(m):
     def wrapper(*args, **kwargs):
@@ -63,7 +61,7 @@ def filter_services(m):
     return wrapper
 
 
-class ServiceNode(nodes.LazyNode):
+class ServiceNode(listener.nodes.LazyNode):
 
     def get_service_method(self, *args, **kwargs):
         uname = platform.uname()[0]
@@ -145,7 +143,7 @@ class ServiceNode(nodes.LazyNode):
 
         for line in status.readlines():
             line.rstrip()
-            unit, load, active, sub, description = re.split('\s+', line, 4)
+            unit, load, active, sub, description = re.split(r'\s+', line, 4)
             if unit.endswith('.service'):
                 unit = unit[:-8]
             if 'not-found' not in load:
@@ -171,7 +169,7 @@ class ServiceNode(nodes.LazyNode):
         # Check to see if there are any services we need to add that
         # weren't already caught by the initd script check
         for line in status.readlines():
-            m = re.match("(.*) (?:\w*)/(\w*)(?:, .*)?", line)
+            m = re.match(r"(.*) (?:\w*)/(\w*)(?:, .*)?", line)
             try:
                 if m.group(1) not in services:
                     if m.group(2) == 'running':
@@ -402,7 +400,7 @@ class ServiceNode(nodes.LazyNode):
             check_logging = 1
 
         # Put check results in the check database
-        if not server.__INTERNAL__ and check_logging == 1:
+        if not listener.server.__INTERNAL__ and check_logging == 1:
             db = database.DB()
             current_time = time.time()
             db.add_check(kwargs['accessor'].rstrip('/'), current_time, current_time, returncode,

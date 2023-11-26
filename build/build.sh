@@ -189,7 +189,7 @@ fi
 
 (
     cd $AGENT_DIR
-    $PYTHONBIN setup_posix.py build_exe > $BUILD_DIR/build.log
+    $PYTHONBIN setup.py build_exe > $BUILD_DIR/build.log
 
     # Move the ncpa binary data
     cd $BUILD_DIR

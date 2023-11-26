@@ -1,57 +1,49 @@
-# -*- coding: utf-8 -*-
-
 from flask import Flask, render_template, redirect, request, url_for, jsonify, Response, session, make_response, abort
 import logging
-import urllib
-import urlparse
 import os
 import sys
 import platform
 import requests
-import psapi
 import functools
-import jinja2
 import datetime
 import json
-import re
 import psutil
-import gevent
-import geventwebsocket
-import processes
-import database
+import listener.psapi as psapi
+import listener.processes as processes
+import listener.database as database
 import math
 import ipaddress
+import urllib.parse
+import gevent
+import ncpa
+
+
+# Set whether or not a request is internal or not
 import socket
 from hmac import compare_digest
 
-__VERSION__ = '2.4.1'
+
+__VERSION__ = '3.0.0'
 __STARTED__ = datetime.datetime.now()
 __INTERNAL__ = False
-
-base_dir = os.path.dirname(sys.path[0])
 
 
 # The following if statement is a workaround that is allowing us to run this
 # in debug mode, rather than a hard coded location.
 
-tmpl_dir = os.path.join(base_dir, 'listener', 'templates')
-if not os.path.isdir(tmpl_dir):
-    tmpl_dir = os.path.join(base_dir, 'agent', 'listener', 'templates')
-
-stat_dir = os.path.join(base_dir, 'listener', 'static')
-if not os.path.isdir(stat_dir):
-    stat_dir = os.path.join(base_dir, 'agent', 'listener', 'static')
-
-if os.name == 'nt':
-    logging.info(u"Looking for templates at: %s", tmpl_dir)
-    listener = Flask(__name__, template_folder=tmpl_dir, static_folder=stat_dir)
-    listener.jinja_loader = jinja2.FileSystemLoader(tmpl_dir)
+if getattr(sys, 'frozen', False):
+    appdir = os.path.dirname(sys.executable)
 else:
-    listener = Flask(__name__, template_folder=tmpl_dir, static_folder=stat_dir)
+    appdir = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))
+
+tmpl_dir = os.path.join(appdir, 'listener', 'templates')
+stat_dir = os.path.join(appdir, 'listener', 'static')
+
+listener = Flask(__name__, template_folder=tmpl_dir, static_folder=stat_dir)
 
 
 # Set some settings for Flask
-listener.jinja_env.line_statement_prefix = '#'
+listener.config.update(SECRET_KEY=os.urandom(24))
 listener.url_map.strict_slashes = False
 listener.config.update(
     SESSION_COOKIE_SECURE = True
@@ -82,7 +74,7 @@ def get_config_items(section):
 # Misc function for making information for main page
 def make_info_dict():
     now = datetime.datetime.now()
-    uptime = unicode(now - __STARTED__)
+    uptime = str(now - ncpa.__STARTED__)
     uptime = uptime.split('.', 1)[0]
 
     # Get check status
@@ -95,7 +87,7 @@ def make_info_dict():
     if proc_type == '':
         proc_type = uname[4];
 
-    return { 'agent_version': __VERSION__,
+    return { 'agent_version': ncpa.__VERSION__,
              'uptime': uptime,
              'processor': proc_type,
              'node': uname[1],
@@ -661,7 +653,7 @@ def admin_global():
 
     # Check session for flash message
     flash_msg_text = session.get('flash_msg_text', '')
-    if flash_msg_text is not '':
+    if flash_msg_text != '':
         flash_msg_type = session.get('flash_msg_type', 'info')
         tmp_args['flash_msg_text'] = flash_msg_text
         tmp_args['flash_msg_type'] = flash_msg_type
@@ -675,7 +667,7 @@ def admin_global():
 @requires_admin_auth
 def admin_listener_config():
     tmp_args = { 'no_nav': True,
-                 'ip': get_config_value('listener', 'ip', '::'),
+                 'ip': get_config_value('listener', 'ip', '0.0.0.0'),
                  'port': get_config_value('listener', 'port', '5693'),
                  'uid': get_config_value('listener', 'uid', 'nagios'),
                  'gid': get_config_value('listener', 'gid', 'nagios'),
@@ -842,7 +834,7 @@ def api_websocket(accessor=None):
                 node = psapi.getter(message, config, request.path, request.args)
                 prop = node.name
                 val = node.walk(first=True, **sane_args)
-                jval = json.dumps(val[prop], encoding=encoding)
+                jval = json.dumps(val[prop])
                 ws.send(jval)
             except Exception as e:
                 # Socket was probably closed by the browser changing pages
@@ -855,10 +847,6 @@ def api_websocket(accessor=None):
 @listener.route('/ws/top')
 @requires_token_or_auth
 def top_websocket():
-
-    encoding = sys.stdin.encoding
-    if encoding is None:
-        encoding = sys.getdefaultencoding()
 
     if request.environ.get('wsgi.websocket'):
         ws = request.environ['wsgi.websocket']
@@ -877,8 +865,7 @@ def top_websocket():
                 process_list.append(process)
 
 
-            json_val = json.dumps({'load': load, 'vir': vir_mem, 'swap': swap_mem, 'process': process_list},
-                                  encoding=encoding)
+            json_val = json.dumps({'load': load, 'vir': vir_mem, 'swap': swap_mem, 'process': process_list})
 
             try:
                 ws.send(json_val)
@@ -895,20 +882,17 @@ def top_websocket():
 @requires_token_or_auth
 def tail_websocket():
 
-    encoding = sys.stdin.encoding
-    if encoding is None:
-        encoding = sys.getdefaultencoding()
+    import listener.windowslogs
 
     if request.environ.get('wsgi.websocket'):
         ws = request.environ['wsgi.websocket']
         last_ts = datetime.datetime.now()
         while True:
             try:
-                last_ts, logs = listener.tail_method(last_ts=last_ts, **request.args)
+                last_ts, logs = listener.windowslogs.tail_method(last_ts=last_ts, **request.args)
 
-                if logs:
-                    json_log = json.dumps(logs, encoding=encoding)
-                    ws.send(json_log)
+                json_val = json.dumps(logs)
+                ws.send(json_val)
 
                 gevent.sleep(5)
             except Exception as e:
@@ -961,7 +945,7 @@ def tail(accessor=None):
     info = { }
 
     query_string = request.query_string
-    info['query_string'] = urllib.quote(query_string)
+    info['query_string'] = urllib.parse.quote(query_string)
 
     return render_template('tail.html', **info)
 
@@ -994,9 +978,9 @@ def graph(accessor=None):
 
     info['graph_prop'] = prop
     query_string = request.query_string
-    info['query_string'] = urllib.quote(query_string)
+    info['query_string'] = urllib.parse.quote(query_string)
 
-    url = urlparse.urlparse(request.url)
+    url = urllib.parse.urlparse(request.url)
     info['load_from'] = url.scheme + '://' + url.netloc
     info['load_websocket'] = url.netloc
 
@@ -1057,7 +1041,7 @@ def nrdp():
         return resp
     except Exception as exc:
         logging.exception(exc)
-        return error(msg=unicode(exc))
+        return error(msg=exc)
 
 
 # ------------------------------
@@ -1074,7 +1058,6 @@ def api(accessor=''):
     retrieve the metric and do the necessary walking of the tree.
 
     :param accessor: The path/to/the/desired/metric
-    :type accessor: unicode
     :rtype: flask.Response
     """
 
@@ -1123,7 +1106,6 @@ def api(accessor=''):
         value = node.walk(**sane_args)
 
     # Generate page and add cross-domain loading
-    json_data = json.dumps(dict(value), ensure_ascii=False, indent=None if request.is_xhr else 4)
-    response = Response(json_data, mimetype='application/json')
+    response = Response(json.dumps(dict(value), ensure_ascii=False), mimetype='application/json')
     response.headers['Access-Control-Allow-Origin'] = '*'
     return response

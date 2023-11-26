@@ -35,6 +35,7 @@ if [ $unixtype == "Linux" ]; then
         version=`sed 's/.*release \([0-9.]\+\).*/\1/' /etc/redhat-release`
     elif [ -r /etc/os-release ]; then
         source /etc/os-release
+        echo $NAME
         if [ -n "$NAME" ]; then
             distro=$NAME
             version=$VERSION_ID

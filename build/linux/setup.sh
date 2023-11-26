@@ -1,23 +1,20 @@
 #!/bin/bash
 
 # Globals
-PYTHONVERSION="2.7.18"
-PYTHONTAR="Python-$PYTHONVERSION"
-PYTHONVER="python2.7"
-CXFREEZEVER="cx_Freeze-4.3.4"
+PYTHONVER="3.9.7"
+PYTHONTAR="Python-$PYTHONVER"
+PYTHONBIN=$(which python3)
 SKIP_PYTHON=0
 
 # Get information about system
 . $BUILD_DIR/linux/init.sh
 
 update_py_packages() {
-    PYTHONBIN=$(which python2.7)
-    resources="require.txt"
-    if [ "$dist" == "el6" ] || [ "$dist" == "el7" ] || [ "$dist" == "debian8" ]; then
-        resources="require.dep.txt"
-    fi
-
-    LDFLAGS='-Wl,-rpath,\${ORIGIN} -Wl,-rpath,\${ORIGIN}/lib' $PYTHONBIN -m pip install -r $BUILD_DIR/resources/$resources --upgrade --no-binary :all:
+    PYTHONBIN=$(which python3.9)
+    # Removed from before PYTHONBIN: LDFLAGS='-Wl,-rpath,\${ORIGIN} -Wl,-rpath,\${ORIGIN}/lib'
+    # Removed from end: --no-binary :all:
+    $PYTHONBIN -m pip install --upgrade pip
+    $PYTHONBIN -m pip install -r $BUILD_DIR/resources/require.txt --upgrade
 }
 
 install_prereqs() {
@@ -107,6 +104,12 @@ install_prereqs() {
 
     cd $BUILD_DIR/resources
 
+    echo "Building python..."
+
+    if [ ! -f "$PYTHONTAR.tgz" ]; then
+        wget "https://www.python.org/ftp/python/$PYTHONVER/$PYTHONTAR.tgz"
+    fi
+
     # Install bundled Python version from source
     if [ $SKIP_PYTHON -eq 0 ]; then
         if [ ! -f $PYTHONTAR.tgz ]; then
@@ -114,32 +117,17 @@ install_prereqs() {
         fi
         tar xf $PYTHONTAR.tgz
         cd $PYTHONTAR
-        ./configure LDFLAGS='-Wl,-rpath,\$${ORIGIN} -Wl,-rpath,\$${ORIGIN}/lib' && make && make altinstall
+        # Removed from configure: LDFLAGS='-Wl,-rpath,\$${ORIGIN} -Wl,-rpath,\$${ORIGIN}/lib'
+        ./configure && make && make altinstall
         cd ..
         rm -rf $PYTHONTAR
-        PYTHONBIN=$(which python2.7)
-
-        # Link lib-dynload from lib64 to lib due to arch issues for Python 2.7
-        if [ "$dist" == "os15" ]; then
-            ln -s /usr/local/lib64/python2.7/lib-dynload/ /usr/local/lib/python2.7/lib-dynload
-        fi
+        PYTHONBIN=$(which python3.9)
     fi
 
-    # Install the patched version of cx_Freeze
-    tar xf $CXFREEZEVER.tar.gz
-    cd $CXFREEZEVER
-    $PYTHONBIN setup.py install
-    cd ..
-    rm -rf $CXFREEZEVER
-
-
     # --------------------------
-    #  INSTALL PIP & PIP MODULES
+    #  INSTALL MODULES
     # --------------------------
 
-
-    # Install pip
-    cd /tmp && wget --no-check-certificate https://bootstrap.pypa.io/pip/2.7/get-pip.py && $PYTHONBIN /tmp/get-pip.py
 
     # Install modules
     update_py_packages

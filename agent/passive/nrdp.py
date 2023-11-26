@@ -1,13 +1,11 @@
 import xml.dom.minidom
 import logging
+import passive.utils
+import passive.nagioshandler
 import listener.server
-import nagioshandler
-import utils
-from itertools import izip
-import ConfigParser
 
 
-class Handler(nagioshandler.NagiosHandler):
+class Handler(passive.nagioshandler.NagiosHandler):
     """
     NRDP Handler.
     """
@@ -36,8 +34,8 @@ class Handler(nagioshandler.NagiosHandler):
         doc = xml.dom.minidom.Document()
         element = doc.createElement(tag_name)
         if tag_attr:
-            for k, v in izip(list(tag_attr.keys()), list(tag_attr.values())):
-                element.setAttribute(unicode(k), unicode(v))
+            for k, v in zip(list(tag_attr.keys()), list(tag_attr.values())):
+                element.setAttribute(k, v)
         if text:
             text_node = doc.createTextNode(text.strip())
             element.appendChild(text_node)
@@ -67,9 +65,9 @@ class Handler(nagioshandler.NagiosHandler):
             check_type = 'service'
 
         check_result = Handler.make_tag(u'checkresult', tag_attr={'type': check_type})
-        hostname = Handler.make_tag(u'hostname', unicode(check.hostname))
-        state = Handler.make_tag(u'state', unicode(returncode))
-        output = Handler.make_tag(u'output', unicode(stdout))
+        hostname = Handler.make_tag(u'hostname', check.hostname)
+        state = Handler.make_tag(u'state', returncode)
+        output = Handler.make_tag(u'output', stdout)
 
         if not check_type == 'host':
             servicename = Handler.make_tag(u'servicename', check.servicename)
@@ -116,7 +114,7 @@ class Handler(nagioshandler.NagiosHandler):
 
         # Verify there are any checks to send
         checks = doc.getElementsByTagName('checkresult')
-        if len(checks) is 0:
+        if len(checks) == 0:
             logging.debug("No NRDP checks. Skipping NRDP send.")
             return
 
@@ -125,9 +123,9 @@ class Handler(nagioshandler.NagiosHandler):
 
     def guess_hostname(self):
         try:
-            hostname = self.config.get('nrdp', 'hostname', None)
+            hostname = self.config.get('nrdp', 'hostname')
             assert hostname
-        except (ConfigParser.NoSectionError, ConfigParser.NoOptionError, AssertionError):
+        except Exception:
             logging.debug("No hostname given in the config, falling back to parent class.")
             hostname = super(Handler, self).guess_hostname()
         return hostname

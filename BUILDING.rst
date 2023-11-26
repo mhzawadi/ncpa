@@ -7,6 +7,8 @@ Building NCPA
 Building with Docker
 ====================
 
+- run: `docker run -it --rm --name ncpa -v /sys/fs/cgroup:/sys/fs/cgroup:ro mhzawadi/ncpa_builder`
+
 Building on Windows
 ===================
 

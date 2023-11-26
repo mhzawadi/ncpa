@@ -5,6 +5,8 @@
 # don't have lsb_release by default and SuSE doesn't have it either. Also added support
 # for Unix systems like Mac OS X.
 
+echo -e "***** linux/init.sh"
+
 unixtype=`uname -s`
 
 # Make sure we're on a Linux distro
@@ -45,7 +47,7 @@ if [ $unixtype == "Linux" ]; then
         version=`lsb_release -sr`
     fi
 elif [ $unixtype == "Darwin" ]; then
-    distro="MacOSX"
+    distro="MacOS"
     version=`sw_vers -productVersion`
 fi
 
@@ -92,8 +94,8 @@ case "$distro" in
     "OpenSUSE" )
         dist="os$ver"
         ;;
-    "MacOSX" )
-        dist="osx$ver"
+    "MacOS" )
+        dist="macos$ver"
         ;;
     "SLES" )
         dist="sles$ver"

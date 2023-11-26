@@ -9,7 +9,8 @@ import copy
 import queue
 import listener.nodes as nodes
 import listener.database as database
-import listener.server
+import listener.environment as environment
+import listener.server as server
 import signal
 from threading import Timer
 
@@ -62,8 +63,12 @@ class PluginNode(nodes.RunnableNode):
         """
         _, extension = os.path.splitext(self.name)
         try:
+            if extension.strip() == "":
+                return "$plugin_name $plugin_args"
             return config.get("plugin directives", extension)
         except ConfigParser.NoOptionError:
+            return "$plugin_name $plugin_args"
+        else:
             return "$plugin_name $plugin_args"
 
     def kill_proc(self, p, t):
@@ -93,7 +98,7 @@ class PluginNode(nodes.RunnableNode):
         except Exception as e:
             check_logging = 1
 
-        # Create a list of plugin names that should be ran as sudo
+        # Create a list of plugin names that should be run as sudo
         sudo_plugins = []
         try:
             run_with_sudo = config.get("plugin directives", "run_with_sudo")
@@ -140,8 +145,13 @@ class PluginNode(nodes.RunnableNode):
             returncode = -1
             logging.error(stdout)
 
-        cleaned_stdout = unicode(
-            "".join(stdout.decode("utf-8", "ignore"))
+        if isinstance(stdout, bytes):
+            str_stdout = stdout.decode("utf-8", "ignore")
+        else:
+            str_stdout = stdout
+
+        cleaned_stdout = str(
+            str_stdout
             .replace("\r\n", "\n")
             .replace("\r", "\n")
             .strip()

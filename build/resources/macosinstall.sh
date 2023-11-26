@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# MacOS Installer v3.0
+# Upgrades previous versions v2.x, and v3.x
+
 scriptUser=$(whoami)
 if ! id -Gn "${scriptUser}" | grep -q -w admin; then
     echo -e "\n\n        ERROR!!!: You must have admin privileges to run this script!\n\n"
@@ -44,6 +47,7 @@ if [ ${upgrade} -eq "1" ]; then
     echo -n "    Stopping old NCPA services... "
     launchctl stop com.nagios.ncpa.listener
     launchctl stop com.nagios.ncpa.passive
+    launchctl stop com.nagios.ncpa
 
     # Give launchctl time to stop services before continuing
     sleep 5
@@ -98,20 +102,19 @@ if [ ${upgrade} -eq "1" ]; then
     echo -n "    Unloading old NCPA services... "
     launchctl unload /Library/LaunchDaemons/com.nagios.ncpa.listener.plist
     launchctl unload /Library/LaunchDaemons/com.nagios.ncpa.passive.plist
+    rm /Library/LaunchDaemons/com.nagios.ncpa.listener.plist
+    rm /Library/LaunchDaemons/com.nagios.ncpa.passive.plist
+
+    launchctl unload /Library/LaunchDaemons/com.nagios.ncpa.plist
     echo "Done."
 fi
 
-cp ncpa/build_resources/ncpa_listener.plist /Library/LaunchDaemons/com.nagios.ncpa.listener.plist
-cp ncpa/build_resources/ncpa_passive.plist /Library/LaunchDaemons/com.nagios.ncpa.passive.plist
+cp ncpa/build_resources/default-plist /Library/LaunchDaemons/com.nagios.ncpa.plist
 
 # Remove MacOS x attributes
 echo -n "    Removing MacOS xattributes from LaunchDaemon plists... "
-if [[ $(xattr -l /Library/LaunchDaemons/com.nagios.ncpa.listener.plist) ]]; then
-    xattr -d com.apple.quarantine /Library/LaunchDaemons/com.nagios.ncpa.listener.plist
-fi
-
-if [[ $(xattr -l /Library/LaunchDaemons/com.nagios.ncpa.passive.plist) ]]; then
-    xattr -d com.apple.quarantine /Library/LaunchDaemons/com.nagios.ncpa.passive.plist
+if [[ $(xattr -l /Library/LaunchDaemons/com.nagios.ncpa.plist) ]]; then
+    xattr -d com.apple.quarantine /Library/LaunchDaemons/com.nagios.ncpa.plist
 fi
 
 echo "Done."
@@ -141,19 +144,14 @@ if [ ${upgrade} -eq "1" ]; then
 fi
 
 echo -n "    Starting NCPA... "
-launchctl load /Library/LaunchDaemons/com.nagios.ncpa.listener.plist
-launchctl load /Library/LaunchDaemons/com.nagios.ncpa.passive.plist
+launchctl load /Library/LaunchDaemons/com.nagios.ncpa.plist
 
-launchctl start com.nagios.ncpa.passive
-launchctl start com.nagios.ncpa.listener
+launchctl start com.nagios.ncpa
 echo "Done."
 
 listNCPAcomponents() {
     echo "---------------------------------------"
     echo "Listing NCPA components... "
-    echo "\nProcesses?:"
-    ps aux | grep -v grep | grep ncpa_
-
     echo "\nLaunchDaemons?:"
     launchctl list | grep nagios
 
@@ -168,6 +166,9 @@ listNCPAcomponents() {
 
     echo "\nHome dir?:"
     ls -al /usr/local | grep ncpa
+
+    echo "\nProcesses?:"
+    ps aux | grep -v grep | grep "/ncpa"
 }
 
 listNCPAcomponents

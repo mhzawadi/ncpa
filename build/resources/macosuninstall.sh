@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# MacOS UnInstaller v3.0
+# Removes versions v2.x, and v3.x
+
 scriptUser=$(whoami)
 if ! id -Gn "${scriptUser}" | grep -q -w admin; then
     echo -e "\n\n        ERROR!!!: You must have admin privileges to run this script!\n\n"
@@ -40,6 +43,12 @@ removeNCPAdaemons() {
         echo -n "passive stopped... "
         stopped=1
     fi
+    hasCombined=$(launchctl list | grep ncpa)
+    if [[ $hasCombined ]]; then
+        launchctl stop com.nagios.ncpa.passive
+        echo -n "ncpa stopped... "
+        stopped=1
+    fi
 
     # Give launchctl time to stop services before continuing
     if [[ $stopped ]]; then
@@ -56,8 +65,13 @@ removeNCPAdaemons() {
         launchctl unload /Library/LaunchDaemons/com.nagios.ncpa.passive.plist
     fi
 
+    if [[ -f "/Library/LaunchDaemons/com.nagios.ncpa.plist" ]] ; then
+        launchctl unload /Library/LaunchDaemons/com.nagios.ncpa.plist
+    fi
+
     launchctl remove com.nagios.ncpa.listener
     launchctl remove com.nagios.ncpa.passive
+    launchctl remove com.nagios.ncpa
     echo "Done."
 }
 
@@ -65,6 +79,7 @@ removeNCPAplists() {
     echo -n "    Removing NCPA plists... "
     rm -f /Library/LaunchDaemons/com.nagios.ncpa.listener.plist
     rm -f /Library/LaunchDaemons/com.nagios.ncpa.passive.plist
+    rm -f /Library/LaunchDaemons/com.nagios.ncpa.plist
     echo "Done."
 }
 
@@ -80,6 +95,13 @@ killNCPAprocesses() {
     if [[ $pid ]]; then
         kill $pid
         echo -n "Killed $pid ncpa_passive, "
+    fi
+
+    pid=`ps aux | grep /ncpa | grep -v grep | grep -v uninstall | awk '{print $2}'`
+    if [[ $pid ]]; then
+        echo $pid
+        echo $pid | xargs kill
+        echo -n "Killed $pid ncpa and sub-processes, "
     fi
     echo "Done."
 }
@@ -113,7 +135,7 @@ listNCPAcomponents() {
     echo "\n---------------------------------------"
     echo "Listing NCPA components... "
     echo "\nProcesses?:"
-    ps aux | grep -v grep | grep ncpa_
+    ps aux | grep /ncpa | grep -v grep | grep -v uninstall
 
     echo "\nLaunchDaemons?:"
     launchctl list | grep nagios

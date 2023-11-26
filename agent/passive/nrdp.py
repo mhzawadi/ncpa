@@ -1,8 +1,8 @@
 import xml.dom.minidom
-import logging
 import passive.utils
 import passive.nagioshandler
 import listener.server
+from ncpa import passive_logger as logging
 
 
 class Handler(passive.nagioshandler.NagiosHandler):
@@ -37,7 +37,7 @@ class Handler(passive.nagioshandler.NagiosHandler):
             for k, v in zip(list(tag_attr.keys()), list(tag_attr.values())):
                 element.setAttribute(k, v)
         if text:
-            text_node = doc.createTextNode(text.strip())
+            text_node = doc.createTextNode(str(text).strip())
             element.appendChild(text_node)
         return element
 
@@ -64,10 +64,10 @@ class Handler(passive.nagioshandler.NagiosHandler):
         else:
             check_type = 'service'
 
-        check_result = Handler.make_tag(u'checkresult', tag_attr={'type': check_type})
-        hostname = Handler.make_tag(u'hostname', check.hostname)
-        state = Handler.make_tag(u'state', returncode)
-        output = Handler.make_tag(u'output', stdout)
+        check_result = Handler.make_tag('checkresult', tag_attr={'type': check_type})
+        hostname = Handler.make_tag('hostname', check.hostname)
+        state = Handler.make_tag('state', returncode)
+        output = Handler.make_tag('output', stdout)
 
         if not check_type == 'host':
             servicename = Handler.make_tag(u'servicename', check.servicename)
@@ -126,8 +126,8 @@ class Handler(passive.nagioshandler.NagiosHandler):
             hostname = self.config.get('nrdp', 'hostname')
             assert hostname
         except Exception:
-            logging.debug("No hostname given in the config, falling back to parent class.")
             hostname = super(Handler, self).guess_hostname()
+            logging.debug("No hostname given in the config. Assuming hostname is: %s.", hostname)
         return hostname
 
     @staticmethod
@@ -139,8 +139,12 @@ class Handler(passive.nagioshandler.NagiosHandler):
         :type ret_xml: unicode
         :rtype : None
         """
-
-        tree = xml.dom.minidom.parseString(ret_xml)
+        try:
+            tree = xml.dom.minidom.parseString(ret_xml)
+        except:
+            logging.warning('XML returned from NRDP server (%s) was malformed. Check your server address.', server)
+            logging.warning('Your NRDP Address should be formatted: http://[ip address]/nrdp')
+            return
 
         try:
             message = tree.getElementsByTagName("message")[0].firstChild.nodeValue
@@ -196,7 +200,7 @@ class Handler(passive.nagioshandler.NagiosHandler):
                 server += '/'
 
             logging.debug('XML to be submitted: %s', checkresults)
-            ret_xml = utils.send_request(url=server, connection_timeout=timeout, token=token, XMLDATA=checkresults, cmd='submitcheck')
+            ret_xml = passive.utils.send_request(url=server, connection_timeout=timeout, token=token, XMLDATA=checkresults, cmd='submitcheck')
 
             if ret_xml is not None:
                 try:

@@ -100,6 +100,10 @@ case "$distro" in
     "SLES" )
         dist="sles$ver"
         ;;
+    "Amazon Linux" )
+        dist="el7"
+        distro="CentOS" 
+        ;;
     *)
         dist=$(echo "$distro$ver" | tr A-Z a-z)
 esac

@@ -1,16 +1,18 @@
-import psutil as ps
+import ctypes
+import math
 import os
-import logging
-import time
-import re
 import platform
+import psutil as ps
+import re
+import time
+
 from listener.nodes import ParentNode, RunnableNode, RunnableParentNode, LazyNode
 from listener.pluginnodes import PluginAgentNode
 import listener.services as services
 import listener.processes as processes
-import ncpa
 import listener.environment as environment
-import math
+import ncpa
+from ncpa import listener_logger as logging
 
 importables = ("windowscounters", "windowslogs")
 
@@ -92,12 +94,46 @@ def make_mountpoint_nodes(partition_name):
     )
     fstype = RunnableNode("fstype", method=lambda: (partition_name.fstype, ""))
     opts = RunnableNode("opts", method=lambda: (partition_name.opts, ""))
-    maxfile = RunnableNode(
-        "max_file_length", method=lambda: (partition_name.maxfile, "")
-    )
-    maxpath = RunnableNode(
-        "max_path_length", method=lambda: (partition_name.maxpath, "")
-    )
+    if not hasattr(partition_name, "maxfile") or not hasattr(partition_name, "maxpath"):
+        file_system_flags = ctypes.c_uint(0)
+        fs_name_buf = ctypes.create_unicode_buffer(1024)
+        max_component_length = ctypes.c_uint(0)
+        serial_number = ctypes.c_uint(0)
+        volume_name_buf = ctypes.create_unicode_buffer(1024)
+        maxpath = ""
+        maxfile = ""
+        
+        if __SYSTEM__ == "nt":
+            maxfile = ctypes.windll.kernel32.GetVolumeInformationW(
+                ctypes.c_wchar_p(mountpoint),
+                volume_name_buf,
+                ctypes.sizeof(volume_name_buf),
+                ctypes.byref(serial_number),
+                ctypes.byref(max_component_length),
+                ctypes.byref(file_system_flags),
+                fs_name_buf,
+                ctypes.sizeof(fs_name_buf)
+            )
+        else:
+            maxfile = os.pathconf(mountpoint, os.pathconf_names["PC_NAME_MAX"])
+            maxpath = os.pathconf(mountpoint, os.pathconf_names["PC_PATH_MAX"])
+        maxfilelen = "" if (maxfile == 0 or maxfile == "") else max_component_length.value
+        maxfilelen = "" if maxfilelen == 0 else maxfilelen
+        maxpathval = "" if (maxpath == 0 or maxpath == "") else maxpath
+        
+        maxfile = RunnableNode(
+            "max_file_length", method=lambda: (maxfilelen, "")
+        )
+        maxpath = RunnableNode(
+            "max_path_length", method=lambda: (maxpathval, "")
+        )
+    else:
+        maxfile = RunnableNode(
+            "max_file_length", method=lambda: (partition_name.maxfile, "")
+        )
+        maxpath = RunnableNode(
+            "max_path_length", method=lambda: (partition_name.maxpath, "")
+        )
     safe_mountpoint = re.sub(r"[\\/]+", "|", mountpoint)
 
 
@@ -238,21 +274,21 @@ def get_system_node():
     )
 
 
-def get_cpu_node():
+def get_cpu_node(cpu_interval=0.5):
     cpu_count = RunnableNode(
-        "count", method=lambda: ([len(ps.cpu_percent(percpu=True))], "cores")
+        "count", method=lambda:     ([len(ps.cpu_percent(percpu=True))], "cores")
     )
     cpu_percent = LazyNode(
-        "percent", method=lambda: (ps.cpu_percent(interval=0.5, percpu=True), "%")
+        "percent", method=lambda:   (ps.cpu_percent(interval=cpu_interval, percpu=True), "%")
     )
     cpu_user = RunnableNode(
-        "user", method=lambda: ([x.user for x in ps.cpu_times(percpu=True)], "ms")
+        "user", method=lambda:      ([x.user for x in ps.cpu_times(percpu=True)], "ms")
     )
     cpu_system = RunnableNode(
-        "system", method=lambda: ([x.system for x in ps.cpu_times(percpu=True)], "ms")
+        "system", method=lambda:    ([x.system for x in ps.cpu_times(percpu=True)], "ms")
     )
     cpu_idle = RunnableNode(
-        "idle", method=lambda: ([x.idle for x in ps.cpu_times(percpu=True)], "ms")
+        "idle", method=lambda:      ([x.idle for x in ps.cpu_times(percpu=True)], "ms")
     )
     return ParentNode(
         "cpu", children=[cpu_count, cpu_idle, cpu_percent, cpu_system, cpu_user]
@@ -327,6 +363,9 @@ def get_disk_node(config):
     except IOError as ex:
         logging.exception(ex)
         disk_counters = []
+    except Exception as e:
+        logging.exception(e)
+        disk_counters = []
 
     # Get exclude values from the config
     try:
@@ -362,11 +401,15 @@ def get_disk_node(config):
                         disk_mountpoints.append(tmp)
                     except OSError as ex:
                         logging.exception(ex)
+                    except Exception as e:
+                        logging.exception("Unexpected error in make_mountpoint_nodes: %s", e)
                 else:
                     tmp = make_mount_other_nodes(x)
                     disk_parts.append(tmp)
     except IOError as ex:
         logging.exception(ex)
+    except Exception as e:
+        logging.exception(e)
 
     disk_logical = ParentNode("logical", children=disk_mountpoints)
     disk_physical = ParentNode("physical", children=disk_counters)

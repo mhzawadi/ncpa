@@ -1,6 +1,40 @@
 Changelog
 +++++++++
 
+3.1.1 - 09/19/2024
+==================
+**Updates**
+
+- Updated to OpenSSL 3.0.15 to resolve some CVEs. [GH:#1176] (Blake Bahner)
+- Updated to Python to 3.12.6 for Windows builds to resolve some CVEs. (Blake Bahner)
+- Updated the RPM hash to SHA256 to enable the installation of NCPA in FIPS mode. [GH:#1168] (Blake Bahner)
+- Dropped support for CentOS 8, Debian 10 and Ubuntu 18 due to OpenSSL no longer supporting these platforms. (Blake Bahner)
+
+**Bug Fixes**
+
+- Fixed an issue where NCPA would show an error if the logs were missing. (Ivan-Roger)
+- Fixed an issue that would cause NCPA to crash in debug mode due to a wrongly called function. (Ivan-Roger)
+- Fixed an issue where new NCPA builds would fail because of a cx_Freeze update. [GH:#1177,#1178] (Blake Bahner)
+- Fixed an issue where several disk endpoints could give errors instead of values. [GH:#1191] (Blake Bahner)
+
+3.1.0 - 05/16/2024
+==================
+**Updates**
+
+- Added the ability to configure certain settings in the NCPA interface. [GH#1144] (Blake Bahner)
+- Added migration of NCPA 2 configuration files and plugins to NCPA 3. [GH#1097] (Blake Bahner)
+- Made the NCPA 3 plugins and directives case-insensitive on Windows to match standard Windows behavior. [GH#1137] (Blake Bahner)
+- Removed misleading information from the NCPA 3 configuration file.  (Blake Bahner)
+- Updated passive checks to allow escaped spaces. [GH#1089] (Blake Bahner)
+- Improved the NCPA token filter to cause significantly fewer crashes when something else goes wrong. (Blake Bahner)
+
+**Bug Fixes**
+
+- Fixed the allocation of loggers for sections of NCPA that were not logging properly. (Blake Bahner)
+- Fixed an issue where passive checks would malfunction when handling API endpoints and hostnames/servicenames with whitespaces that were escaped or encapsulated in quotes. (Blake Bahner)
+- Fixed an issue where NCPA would crash when psutil couldn't find certain file systems. [GH#1141] (Blake Bahner)
+- Fixed an issue where NCPA would crash if it couldn't process disk information. (Blake Bahner)
+
 3.0.2 - 03/20/2024
 ==================
 **Updates**

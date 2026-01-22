@@ -1,5 +1,23 @@
 Changelog
 +++++++++
+3.2.3 - 1/22/2026
+==================
+**Added**
+
+- Added option to hide running processes from output of process check command for improved performance and security. [GH#:933,#GH:#750,GL-XI:#1328] - CPD
+
+**Updates**
+
+- Update Python to version 3.13.11 on Windows builds. [GH#1327] - CPD
+- Update psutil to version 7.2.1. - CPD
+
+**Bug Fixes** 
+
+- Fixed a Solaris incorrect directory permission preventing passive checks from working. [GH#1323] - chrisdeubank, CPD
+- Fixed a Solaris issue where NCPA service removal would leave behind masked services. [GH#1298] - chrisdeubank, CPD
+- Fixed a Linux permission issue preventing passive SSL certificate verification from working. [GH#1172, GH#1279] - CPD
+- Fixed an issue where the run as nagios checkbox in the API browser would not clear when changing endpoints in the dropdown. [GH#1332] - CPD
+
 3.2.2 - 12/11/2025
 ==================
 **Updates**
@@ -197,11 +215,11 @@ Changelog
 - Changed python default plugin extension to python3 (#786) (ccztux)
 - Fixed ZeroDivisionError: float division by zero (#769) (ccztux)
 - Fixed connection to NRDP server can hang indefinitely (#776) (ccztux)
-- Fixed toggle long output doesnt work (#778) (ccztux)
+- Fixed toggle long output doesn't work (#778) (ccztux)
 - Fixed the filter Type gets lost on pages > 1 (#780) (ccztux)
-- Fixed some configuration directives doesnt work, e.g. all_partitions and follow_symlinks (#757) (ccztux)
+- Fixed some configuration directives that don't work, e.g. all_partitions and follow_symlinks (#757) (ccztux)
 - Fixed issue with systemctl not showing services due to output (#791)
-- Fixed default value of exlude_fs_types differs from documented default value (#823) (ccztux)
+- Fixed default value of exclude_fs_types differs from documented default value (#823) (ccztux)
 - Fixed ERROR an integer is required on max_connections configuration (#812) (ccztux)
 - Fixed Minor bug. Delta checkbox isn't showing in NCPA interface on Windows (#747) (ccztux)
 - Fixed XSS security vulnerability in tail event log gui page (CVE-2021-43584) (#830)
@@ -222,11 +240,11 @@ Changelog
 - Added secure cookie attribute (#659)
 - Added new memory endpoints swap/swapped_in and swap/swapped_out (#674) (ccztux)
 - Added new disk endpoint inodes_used_percent (#672) (ccztux)
-- Fixed issue with allowed_hosts config directive doesnt work (#638, #660) (ccztux)
+- Fixed issue with allowed_hosts config directive doesn't work (#638, #660) (ccztux)
 - Fixed ncpa_listener fails to start when IPv6 is disabled. (#648) (ccztux)
-- Fixed if an exception was thrown in one api endpoint it breaks the wohle api (#670) (ccztux)
+- Fixed if an exception was thrown in one api endpoint it breaks the whole api (#670) (ccztux)
 - Fixed missing unit (%) for some process checks (#681) (ccztux)
-- Fixed childs started from a plugin will not be killed in case plugin_timeout was reached (#714) (ccztux)
+- Fixed children started from a plugin will not be killed in case plugin_timeout was reached (#714) (ccztux)
 - Fixed error message in case plugin runs into timeout out was not shown (#714) (ccztux)
 - Fixed passive checks stop sending if there are multiple NRDP servers configured and both NRDP servers are not listening. (#715) (ccztux)
 - Fixed missing configuration options in the default ncpa.cfg (#726) (ccztux)
@@ -252,7 +270,7 @@ Changelog
 
 2.2.0 - 10/24/2019
 ==================
-- Added registry ProductID to Windows install registery key for easier lookup (#579)
+- Added registry ProductID to Windows install registry key for easier lookup (#579)
 - Added proper UNKNOWN output text prefix on checks that return UNKNOWN states (#575)
 - Added X-Frame-Options and Content-Security-Policy to not allow NCPA in frames by default
 - Added allowed_sources option in ncpa.cfg to give allowed sources to bypass the frame restrictions
@@ -524,7 +542,7 @@ Changelog
 
 **Deprecated**
 
-- Both API endoints api/service/<servicename> and api/process/<processname> will be removed in version 3 and should be replaced by api/services?service=<servicename> and api/processes?name=<processname> instead
+- Both API endpoints api/service/<servicename> and api/process/<processname> will be removed in version 3 and should be replaced by api/services?service=<servicename> and api/processes?name=<processname> instead
 - The API endpoint api/agent/plugin/<pluginname> will be removed in version 3 in favor of api/plugins/<pluginname> which better matches the current API node naming conventions and is a less confusing name
 
 1.8.1 - 04/09/2015
@@ -562,7 +580,7 @@ Changelog
 
 1.7.1 - 08/19/2014
 ==================
-- Added backwards compatability with the api/service(s) call to work with old plugins/checks
+- Added backwards compatibility with the api/service(s) call to work with old plugins/checks
 - Added log rotation to all clients, logs rotate at 20MB and will rotate once before overwriting old logs
 - Added safeguards when importing disk nodes that prevented the listener from starting in certain circumstances
 - Added link to the /top service in the web UI

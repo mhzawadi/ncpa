@@ -94,14 +94,12 @@ if os.name == 'nt':
 
 # Set some global variables for later
 __FROZEN__ = getattr(sys, 'frozen', False)
-__VERSION__ = '3.2.2'
+__VERSION__ = '3.2.3'
 __DEBUG__ = False
 __SYSTEM__ = os.name
 __STARTED__ = datetime.datetime.now()
 
 options = {}
-
-print("***** Starting NCPA version: ", __VERSION__)
 
 # About Logging
 # Asynchronous processes require separate loggers. Additionally, the parent process
@@ -205,7 +203,7 @@ cfg_defaults = {
 class Base():
     """
     The base class for the Listener and Passive classes, which sets things
-    like options, config, autostart, etc so that they can be accesssed inside
+    like options, config, autostart, etc so that they can be accessed inside
     the other classes
     """
     def __init__(self, options, config, has_error, autostart=False):
@@ -238,7 +236,7 @@ class Base():
 class Listener(Base):
     """
     The listener, which serves the web GUI and API - starting in NCPA 3
-    we will be using a seperate process that is forked off the main process
+    we will be using a separate process that is forked off the main process
     to run the listener so all of NCPA is bundled in a single service
     """
     def __init__(self, options, config, has_error, autostart=False):
@@ -483,10 +481,16 @@ class Daemon():
         # to the currently set user and group so checks don't error out
         try:
             tmpdir = os.path.join(tempfile.gettempdir())
+            self.logger.debug("Checking temp dir for chown: %s", tmpdir)
             for file in os.listdir(tmpdir):
-                if os.path.isfile(file):
-                    if 'ncpa-' in file:
-                        self.chown(os.path.join(tmpdir, file))
+                full_path = os.path.join(tmpdir, file)
+                self.logger.debug("Checking temp file for chown: %s", full_path)
+                self.logger.debug("Temp file is a file: %s", os.path.isfile(full_path))
+
+                if os.path.isfile(full_path):
+                    if file.startswith('ncpa-') or file.endswith('.pem'):
+                        self.logger.debug("Chowning temp file: %s", file)
+                        self.chown(full_path)
         except OSError as e:
             self.logger.exception(e)
             pass
@@ -502,14 +506,14 @@ class Daemon():
 
     # This (ongoing NCPA) process is normally terminated by a different instance of this code launched with the '--stop' option.
     # The 'stop' instance reads the PID of the parent NCPA process and kills it by sending it SIGTERM. When SIGTERM is received, this
-    # function handels it by exiting, which also closes the subordinate processes.
+    # function handles it by exiting, which also closes the subordinate processes.
     def on_sigterm(self, signalnum, frame):
         global has_error
         """Handle sigterm and sigint"""
         self.logger.debug("on_sigterm(%s)", signalnum)
 
         # Forcing exit while in loop's sleep, doesn't always exit cleanly, so
-        # on first occurence (system always sends multiples for sigint), set has_error=True to break main loop
+        # on first occurrence (system always sends multiples for sigint), set has_error=True to break main loop
         if not self.has_error.value:
             self.has_error.value = True
             self.logger.debug("on_sigterm - set has_error = True")

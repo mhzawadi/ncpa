@@ -22,3 +22,13 @@ jobs:
           push: true
           tags: mhzawadi/ncpa_builder:latest
           platforms: linux/amd64,linux/arm64,linux/arm/v7
+  container-test-job:
+      runs-on: ubuntu-24.04-arm
+      container:
+        image: mhzawadi/ncpa_builder
+        volumes:
+          - /sys/fs/cgroup:/sys/fs/cgroup:ro
+        options: --cpus 1
+      steps:
+        - name: Check for dockerenv file
+          run: (ls /.dockerenv && echo Found dockerenv) || (echo No dockerenv)

@@ -2,4 +2,4 @@
 
 cd /ncpa && \
 echo 'y' | build/build.sh && \
-/cloudsend.sh -k /ncpa/build/*.deb https://owncloud.horwood.biz/s/9AptGgMwcHSHTdx
+/cloudsend.sh -k /ncpa/build/*.deb https://horwood.cloud/s/G58K8kzMNEwoSos

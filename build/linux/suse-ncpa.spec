@@ -3,7 +3,7 @@
 
 Name:           ncpa
 Version:        __VERSION__
-Release:        1.sle15
+Release:        1%{?dist}
 Vendor:         Nagios Enterprises, LLC
 Summary:        A cross-platform active and passive monitoring agent
 BuildRoot:      __BUILDROOT__/BUILDROOT/
@@ -69,7 +69,7 @@ fi
 
 if ! getent passwd nagios > /dev/null
 then
-    useradd -r -g nagios nagios
+    useradd -r -g nagios -s /sbin/nologin nagios
 else
     %if 0%{?suse_version} && 0%{?suse_version} < 1210
         usermod -A nagios nagios
@@ -184,6 +184,7 @@ fi
 
 %defattr(0644,root,root,0755)
 /usr/local/ncpa/*.py
+/usr/local/ncpa/*.dat
 /usr/local/ncpa/*.zip
 /usr/local/ncpa/*.githash
 /usr/local/ncpa/build_resources

@@ -88,8 +88,20 @@ except:
 if buildtype == 'nightly':
     print("Looking for list of pip packages to install in %s" % os.path.join(basedir, 'build', 'resources', 'require.win.txt'))
     # subprocess.Popen(['git', 'pull']).wait()
-    subprocess.Popen([python_launcher, '-m', 'pip', 'install', '--upgrade', 'pip']).wait()
-    subprocess.Popen([python_launcher, '-m', 'pip', 'install', '--upgrade', '-r', os.path.join(basedir, 'build', 'resources', 'require.win.txt')]).wait()
+    
+    # Check if we're in a virtual environment (Python 3.3+)
+    in_venv = hasattr(sys, 'real_prefix') or (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+    
+    if in_venv:
+        print("Using virtual environment for package installation")
+        # In a virtual environment, use pip directly
+        subprocess.Popen([python_launcher, '-m', 'pip', 'install', '--upgrade', 'pip']).wait()
+        subprocess.Popen([python_launcher, '-m', 'pip', 'install', '--upgrade', '-r', os.path.join(basedir, 'build', 'resources', 'require.win.txt')]).wait()
+    else:
+        print("Using system Python for package installation")
+        # For system Python, use the original method
+        subprocess.Popen([python_launcher, '-m', 'pip', 'install', '--upgrade', 'pip']).wait()
+        subprocess.Popen([python_launcher, '-m', 'pip', 'install', '--upgrade', '-r', os.path.join(basedir, 'build', 'resources', 'require.win.txt')]).wait()
 
 # Remove old build
 print("Removing old build")
@@ -114,7 +126,7 @@ print("Freezing with cx_Freeze")
 # print("you can track progress in ncpa\\build\\cxFreeze_build.log")
 # print("Python launcher:", python_launcher)
 ## opt 1: run in console:
-subprocess.Popen([python_launcher, 'setup.py', 'build_exe']).wait()
+subprocess.Popen([python_launcher, 'setup.py', 'build_exe']).wait() # TODO: determine if we can/should update this to build instead of build_exe
 ## opt 2: run with logging:
 # with open(os.path.join(basedir, 'build', 'cxFreeze_build.log'), 'w') as logfile:
 #     subprocess.Popen([python_launcher, 'setup.py', 'build_exe'], stdout=logfile).wait()
@@ -138,7 +150,7 @@ try:
     GIT_SHORT       = run_cmd("git rev-parse --short HEAD")
     GIT_UNCOMMITTED = run_cmd("git status --untracked-files=no --porcelain")
 
-    print("GIT_UNCOMMITED:\n", GIT_UNCOMMITTED)
+    print("GIT_UNCOMMITTED:\n", GIT_UNCOMMITTED)
 
     if GIT_UNCOMMITTED:
          GIT_LONG  = f"{GIT_LONG}++ compiled with uncommitted changes"

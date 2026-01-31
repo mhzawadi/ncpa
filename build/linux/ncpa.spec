@@ -88,7 +88,7 @@ fi
 
 if ! getent passwd nagios &> /dev/null
 then
-    useradd -r -g nagios nagios
+    useradd -r -g nagios -s /sbin/nologin nagios 
 else
     %if 0%{?suse_version} && 0%{?suse_version} < 1210
         usermod -A nagios nagios
@@ -145,7 +145,7 @@ fi
 
 %preun
 # Only stop on actual uninstall not upgrades
-# TODO: Make upgrades from NCPA 2 -> 3 seemless (stop old services)
+# TODO: Make upgrades from NCPA 2 -> 3 seamless (stop old services)
 if [ "$1" != "1" ]; then
     if which chkconfig &> /dev/null; then
         if [ -f /usr/local/ncpa/ncpa_listener ]; then
@@ -225,6 +225,7 @@ fi
 /usr/local/ncpa/*.githash
 /usr/local/ncpa/frozen_application_license.txt
 #/usr/local/ncpa/lib/*.py
+/usr/local/ncpa/lib/*.dat
 /usr/local/ncpa/lib/*.zip
 /usr/local/ncpa/build_resources
 /usr/local/ncpa/listener

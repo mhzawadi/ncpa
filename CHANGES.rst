@@ -1,5 +1,104 @@
 Changelog
 +++++++++
+3.2.3 - 1/22/2026
+==================
+**Added**
+
+- Added option to hide running processes from output of process check command for improved performance and security. [GH#:933,#GH:#750,GL-XI:#1328] - CPD
+
+**Updates**
+
+- Update Python to version 3.13.11 on Windows builds. [GH#1327] - CPD
+- Update psutil to version 7.2.1. - CPD
+
+**Bug Fixes** 
+
+- Fixed a Solaris incorrect directory permission preventing passive checks from working. [GH#1323] - chrisdeubank, CPD
+- Fixed a Solaris issue where NCPA service removal would leave behind masked services. [GH#1298] - chrisdeubank, CPD
+- Fixed a Linux permission issue preventing passive SSL certificate verification from working. [GH#1172, GH#1279] - CPD
+- Fixed an issue where the run as nagios checkbox in the API browser would not clear when changing endpoints in the dropdown. [GH#1332] - CPD
+
+3.2.2 - 12/11/2025
+==================
+**Updates**
+
+- Update login shell for nagios user on linux systems to /sbin/nologin for improved security. [GH#:1289] - CPD
+- Update Python to 3.13.9 on Windows builds. [GH#1304] - CPD
+
+**Bug Fixes** 
+
+- Fixed an issue where stopping the NCPA service would cause errors in the scm and event viewer on Windows systems. - CPD
+- Fixed an issue where some log lines were showing up twice on Windows systems. - CPD
+- Fixed an issue where passive state xml element would not always return as string. [GH#1217] - dembaca
+- Fixed a bug where passive checks error out if temp file is deleted while ncpa is still running with dxcas-elash's help. [GH#1309] - CPD 
+- Fixed an issue where Windows Event log date formats were not being parsed properly, leading to crashes. [GH:#878,#1194] - BB
+- Fixed an issue where non-ASCII/Unicode characters in service names would break the services endpoint by updating psutil version to 7.1.0. [GH:#439,#608,#770,#1221] - BB, CPD
+
+3.2.1 - 10/29/2025
+==================
+**Bug Fixes** 
+
+- Fixed an issue where the services endpoint would break on Solaris. [GL-NCPA#18] - BB, CPD
+- Fixed an issue where NCPA wouldn't build properly on Fedora per MrPippin66's instructions. [GH:#1148] - BB
+- Fixed an issue where the build would fail because a venv directory was missing from the PATH with cyanarmadillo's help. [GH:#1295] - CPD
+
+3.2.0 - 08/21/2025
+==================
+**Added**
+
+- Added experimental support for Solaris 11.4 builds. (Blake Bahner)
+
+**Updates**
+
+- Rewrote the build process for Unix environments to use virtual environments for Python dependencies, improving compatibility and build reliability. (Blake Bahner)
+- Improved process killing logic on Unix and Windows systems to handle more edge cases and ensure all child processes are terminated. (Blake Bahner)
+- Updated passive check sending to attempt certificate verification when possible, falling back to legacy behavior if verification fails. (Blake Bahner)
+
+**Bug Fixes**
+
+- Fixed an issue where the API form would not clear fields after certain actions. (Blake Bahner)
+- Fixed an issue where NCPA couldn't upgrade or uninstall on Windows due to a locked file. [GH:#1210,#1281,GL-NCPA:#17] (Blake Bahner)
+
+3.1.4 - 07/30/2025
+==================
+**Added**
+
+- Added support for ARM64 builds for Linux. (DevSysEngineer)
+- Added psutil version to the dashboard to help diagnose issues. (Blake Bahner)
+- Added the ability to disable NCPA's web UI in the configuration file. [GH:#1254] (Blake Bahner)
+
+**Updates**
+
+- Improved .deb build process to improve compatibility with various Debian-based distributions. (Blake Bahner)
+- Improved service handling on Windows to reduce/resolve startup/running issues, particularly around conflicts with Windows' Event Log process. (Blake Bahner)
+- Improved the efficiency of several API endpoints. (Blake Bahner)
+- Updated the bundled Python version to resolve CVEs and improve compatibility. (Blake Bahner)
+- Updated the bundled OpenSSL version to resolve CVEs and improve compatibility. (Blake Bahner)
+- Updated psutil to version 7.0.0, resolving many issues.
+
+3.1.3 - 01/28/2025
+==================
+**Bug Fixes**
+
+- Fixed an issue on Windows where upgrading NCPA to a new Python minor version would cause the service to fail to start. [GH:#1242] (Blake Bahner)
+
+3.1.2 - 01/15/2025
+==================
+**Updates**
+
+- Added debug logging to reverse DNS lookups to help diagnose issues. (Craig Dienger)
+- Added interface status to the interface endpoint. [GH:#1220] (Blake Bahner)
+- Reworked the interface endpoint to be more efficient. [GH:#1001] (Blake Bahner)
+- Updated check logging to give more details when a check fails due to unexpected types. (Blake Bahner)
+- Updated our instantiation of WSGI server to properly set the error log file. [GH:#1227] (Blake Bahner)
+- Updated OpenSSL to 3.2.3 on Linux builds. (Blake Bahner)
+- Updated Python to 3.12.8 on Windows builds. (Blake Bahner)
+
+**Bug Fixes**
+
+- Fixed an issue where API endpoints could report an erroneous unexpected type error. (Blake Bahner)
+- Improved service handling on Windows to reduce the likelihood of problems arising and to resolve an error that was being sent to Windows Event Log. (Blake Bahner)
+- Updated processes check output to preserve perfdata formatting for RRD graphs. [GH:#1224] (Blake Bahner)
 
 3.1.1 - 09/19/2024
 ==================
@@ -8,7 +107,7 @@ Changelog
 - Updated to OpenSSL 3.0.15 to resolve some CVEs. [GH:#1176] (Blake Bahner)
 - Updated to Python to 3.12.6 for Windows builds to resolve some CVEs. (Blake Bahner)
 - Updated the RPM hash to SHA256 to enable the installation of NCPA in FIPS mode. [GH:#1168] (Blake Bahner)
-- Dropped support for CentOS 8, Debian 10 and Ubuntu 18 due to OpenSSL no longer supporting these platforms. (Blake Bahner)
+- Dropped support for CentOS 8, RHEL/Oracle 7, Debian 10 and Ubuntu 18 due to OpenSSL no longer supporting these platforms. (Blake Bahner)
 
 **Bug Fixes**
 
@@ -83,11 +182,11 @@ Changelog
 - Changed python default plugin extension to python3 (#786) (ccztux)
 - Fixed ZeroDivisionError: float division by zero (#769) (ccztux)
 - Fixed connection to NRDP server can hang indefinitely (#776) (ccztux)
-- Fixed toggle long output doesnt work (#778) (ccztux)
+- Fixed toggle long output doesn't work (#778) (ccztux)
 - Fixed the filter Type gets lost on pages > 1 (#780) (ccztux)
-- Fixed some configuration directives doesnt work, e.g. all_partitions and follow_symlinks (#757) (ccztux)
+- Fixed some configuration directives that don't work, e.g. all_partitions and follow_symlinks (#757) (ccztux)
 - Fixed issue with systemctl not showing services due to output (#791)
-- Fixed default value of exlude_fs_types differs from documented default value (#823) (ccztux)
+- Fixed default value of exclude_fs_types differs from documented default value (#823) (ccztux)
 - Fixed ERROR an integer is required on max_connections configuration (#812) (ccztux)
 - Fixed Minor bug. Delta checkbox isn't showing in NCPA interface on Windows (#747) (ccztux)
 - Fixed XSS security vulnerability in tail event log gui page (CVE-2021-43584) (#830)
@@ -108,11 +207,11 @@ Changelog
 - Added secure cookie attribute (#659)
 - Added new memory endpoints swap/swapped_in and swap/swapped_out (#674) (ccztux)
 - Added new disk endpoint inodes_used_percent (#672) (ccztux)
-- Fixed issue with allowed_hosts config directive doesnt work (#638, #660) (ccztux)
+- Fixed issue with allowed_hosts config directive doesn't work (#638, #660) (ccztux)
 - Fixed ncpa_listener fails to start when IPv6 is disabled. (#648) (ccztux)
-- Fixed if an exception was thrown in one api endpoint it breaks the wohle api (#670) (ccztux)
+- Fixed if an exception was thrown in one api endpoint it breaks the whole api (#670) (ccztux)
 - Fixed missing unit (%) for some process checks (#681) (ccztux)
-- Fixed childs started from a plugin will not be killed in case plugin_timeout was reached (#714) (ccztux)
+- Fixed children started from a plugin will not be killed in case plugin_timeout was reached (#714) (ccztux)
 - Fixed error message in case plugin runs into timeout out was not shown (#714) (ccztux)
 - Fixed passive checks stop sending if there are multiple NRDP servers configured and both NRDP servers are not listening. (#715) (ccztux)
 - Fixed missing configuration options in the default ncpa.cfg (#726) (ccztux)
@@ -138,7 +237,7 @@ Changelog
 
 2.2.0 - 10/24/2019
 ==================
-- Added registry ProductID to Windows install registery key for easier lookup (#579)
+- Added registry ProductID to Windows install registry key for easier lookup (#579)
 - Added proper UNKNOWN output text prefix on checks that return UNKNOWN states (#575)
 - Added X-Frame-Options and Content-Security-Policy to not allow NCPA in frames by default
 - Added allowed_sources option in ncpa.cfg to give allowed sources to bypass the frame restrictions
@@ -410,7 +509,7 @@ Changelog
 
 **Deprecated**
 
-- Both API endoints api/service/<servicename> and api/process/<processname> will be removed in version 3 and should be replaced by api/services?service=<servicename> and api/processes?name=<processname> instead
+- Both API endpoints api/service/<servicename> and api/process/<processname> will be removed in version 3 and should be replaced by api/services?service=<servicename> and api/processes?name=<processname> instead
 - The API endpoint api/agent/plugin/<pluginname> will be removed in version 3 in favor of api/plugins/<pluginname> which better matches the current API node naming conventions and is a less confusing name
 
 1.8.1 - 04/09/2015
@@ -448,7 +547,7 @@ Changelog
 
 1.7.1 - 08/19/2014
 ==================
-- Added backwards compatability with the api/service(s) call to work with old plugins/checks
+- Added backwards compatibility with the api/service(s) call to work with old plugins/checks
 - Added log rotation to all clients, logs rotate at 20MB and will rotate once before overwriting old logs
 - Added safeguards when importing disk nodes that prevented the listener from starting in certain circumstances
 - Added link to the /top service in the web UI

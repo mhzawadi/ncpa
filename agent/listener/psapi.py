@@ -26,34 +26,39 @@ def get_uptime():
 
 
 def make_disk_nodes(disk_name):
+    disk_counters = ps.disk_io_counters(perdisk=True)
+    counters = disk_counters.get(disk_name)
+    if counters is None:
+        return ParentNode(disk_name, children=[])
+
     read_time = RunnableNode(
         "read_time",
-        method=lambda: (ps.disk_io_counters(perdisk=True)[disk_name].read_time, "ms"),
+        method=lambda: (counters.read_time, "ms"),
     )
     write_time = RunnableNode(
         "write_time",
-        method=lambda: (ps.disk_io_counters(perdisk=True)[disk_name].write_time, "ms"),
+        method=lambda: (counters.write_time, "ms"),
     )
     read_count = RunnableNode(
         "read_count",
-        method=lambda: (ps.disk_io_counters(perdisk=True)[disk_name].read_count, "c"),
+        method=lambda: (counters.read_count, "c"),
     )
     write_count = RunnableNode(
         "write_count",
-        method=lambda: (ps.disk_io_counters(perdisk=True)[disk_name].write_count, "c"),
+        method=lambda: (counters.write_count, "c"),
     )
     read_bytes = RunnableNode(
         "read_bytes",
-        method=lambda: (ps.disk_io_counters(perdisk=True)[disk_name].read_bytes, "B"),
+        method=lambda: (counters.read_bytes, "B"),
     )
     write_bytes = RunnableNode(
         "write_bytes",
-        method=lambda: (ps.disk_io_counters(perdisk=True)[disk_name].write_bytes, "B"),
+        method=lambda: (counters.write_bytes, "B"),
     )
-    if __SYSTEM__ == "posix" and platform.system() != "Darwin":
+    if __SYSTEM__ == "posix" and platform.system() != "Darwin" and hasattr(counters, "busy_time"):
         busy_time = RunnableNode(
             "busy_time",
-            method=lambda: (ps.disk_io_counters(perdisk=True)[disk_name].busy_time, "ms"),
+            method=lambda: (counters.busy_time, "ms"),
         )
         return ParentNode(
             disk_name,
@@ -207,21 +212,29 @@ def make_mount_other_nodes(partition):
     return ParentNode(safe_mountpoint, children=[dvn, fstype, opts])
 
 
-def make_if_nodes(if_name):
-    x = ps.net_io_counters(pernic=True)
+def make_if_nodes(if_name, io_counters, if_stats):
 
-    bytes_sent = RunnableNode("bytes_sent", method=lambda: (x[if_name].bytes_sent, "B"))
-    bytes_recv = RunnableNode("bytes_recv", method=lambda: (x[if_name].bytes_recv, "B"))
+    bytes_sent = RunnableNode("bytes_sent", method=lambda: (io_counters[if_name].bytes_sent, "B"))
+    bytes_recv = RunnableNode("bytes_recv", method=lambda: (io_counters[if_name].bytes_recv, "B"))
     packets_sent = RunnableNode(
-        "packets_sent", method=lambda: (x[if_name].packets_sent, "packets")
+        "packets_sent", method=lambda: (io_counters[if_name].packets_sent, "packets")
     )
     packets_recv = RunnableNode(
-        "packets_recv", method=lambda: (x[if_name].packets_recv, "packets")
+        "packets_recv", method=lambda: (io_counters[if_name].packets_recv, "packets")
     )
-    errin = RunnableNode("errin", method=lambda: (x[if_name].errin, "errors"))
-    errout = RunnableNode("errout", method=lambda: (x[if_name].errout, "errors"))
-    dropin = RunnableNode("dropin", method=lambda: (x[if_name].dropin, "packets"))
-    dropout = RunnableNode("dropout", method=lambda: (x[if_name].dropout, "packets"))
+    errin = RunnableNode("errin", method=lambda: (io_counters[if_name].errin, "errors"))
+    errout = RunnableNode("errout", method=lambda: (io_counters[if_name].errout, "errors"))
+    dropin = RunnableNode("dropin", method=lambda: (io_counters[if_name].dropin, "packets"))
+    dropout = RunnableNode("dropout", method=lambda: (io_counters[if_name].dropout, "packets"))
+
+    if if_name in if_stats:
+        if if_stats[if_name].isup:
+            status = "up"
+        else:
+            status = "down"
+    else:
+        status = "unknown"
+    statusNode = RunnableNode("status", method=lambda: (status, ""))
 
     return RunnableParentNode(
         if_name,
@@ -235,6 +248,7 @@ def make_if_nodes(if_name):
             dropout,
             bytes_sent,
             errout,
+            statusNode,
         ],
     )
 
@@ -419,8 +433,11 @@ def get_disk_node(config):
 
 
 def get_interface_node():
+    io_counters = ps.net_io_counters(pernic=True)
+    if_stats = ps.net_if_stats()
+
     if_children = [
-        make_if_nodes(x) for x in list(ps.net_io_counters(pernic=True).keys())
+        make_if_nodes(if_name, io_counters, if_stats) for if_name in io_counters.keys()
     ]
     return ParentNode("interface", children=if_children)
 

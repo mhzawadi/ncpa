@@ -44,7 +44,7 @@ from geventwebsocket.handler import WebSocketHandler
 from socket import error as SocketError
 from io import open
 from logging.handlers import RotatingFileHandler
-from multiprocessing import Process, Value, freeze_support
+from multiprocessing import Process, Value, current_process, freeze_support
 import process.daemon_manager
 
 # Create the listener logger instance, now, because it is required by listener.server.
@@ -81,23 +81,25 @@ if os.name == 'posix':
     import pwd
 
 if os.name == 'nt':
+    # ctypes for Windows service control
+    import ctypes
     # pywin32 imports
     import servicemanager
     import win32event
     import win32service
     import win32serviceutil
+    # threading for Windows service
+    import threading
 
 
 # Set some global variables for later
 __FROZEN__ = getattr(sys, 'frozen', False)
-__VERSION__ = '3.1.1'
+__VERSION__ = '3.2.3'
 __DEBUG__ = False
 __SYSTEM__ = os.name
 __STARTED__ = datetime.datetime.now()
 
 options = {}
-
-print("***** Starting NCPA version: ", __VERSION__)
 
 # About Logging
 # Asynchronous processes require separate loggers. Additionally, the parent process
@@ -154,6 +156,7 @@ cfg_defaults = {
                 'max_connections': '200',
                 'allowed_sources': '',
                 'allow_config_edit': '1', # Note: this is limited to non-sensitive settings
+                'disable_gui': '0',  # Disable web GUI while preserving API
             },
             'api': {
                 'community_string': 'mytoken',
@@ -200,7 +203,7 @@ cfg_defaults = {
 class Base():
     """
     The base class for the Listener and Passive classes, which sets things
-    like options, config, autostart, etc so that they can be accesssed inside
+    like options, config, autostart, etc so that they can be accessed inside
     the other classes
     """
     def __init__(self, options, config, has_error, autostart=False):
@@ -215,6 +218,11 @@ class Base():
         if autostart:
             self.run()
 
+    def set_process_name(self, name):
+        current_process().name = name
+        if __SYSTEM__ == 'nt':
+            ctypes.windll.kernel32.SetConsoleTitleW(name)
+
     # Set error flag for parent process to true
     def send_error(self):
         self.has_error.value = True
@@ -228,12 +236,17 @@ class Base():
 class Listener(Base):
     """
     The listener, which serves the web GUI and API - starting in NCPA 3
-    we will be using a seperate process that is forked off the main process
+    we will be using a separate process that is forked off the main process
     to run the listener so all of NCPA is bundled in a single service
     """
+    def __init__(self, options, config, has_error, autostart=False):
+        super().__init__(options, config, has_error, autostart)
+        set_process_name("Nagios Cross-Platform Agent - Listener")
+
     def run(self):
         self.init_logger('listener')
         logger = self.logger
+        logger.info("Starting Listener")
         logger.info("run()")
 
         try:
@@ -296,6 +309,7 @@ class Listener(Base):
                                         application=listener.server.listener,
                                         handler_class=WebSocketHandler,
                                         log=listener_logger,
+                                        error_log=listener_logger,
                                         spawn=Pool(max_connections),
                                         **ssl_context)
             logger.debug("run() - start http_server")
@@ -314,6 +328,7 @@ class Listener(Base):
                                         application=listener.server.listener,
                                         handler_class=WebSocketHandler,
                                         log=listener_logger,
+                                        error_log=listener_logger,
                                         spawn=Pool(max_connections),
                                         **ssl_context)
             http_server.serve_forever()
@@ -328,6 +343,10 @@ class Passive(Base):
     The passive service that runs in the background - this is run in a
     separate thread since it is what the main process is used for
     """
+    def __init__(self, options, config, has_error, autostart=False):
+        super().__init__(options, config, has_error, autostart)
+        set_process_name("Nagios Cross-Platform Agent - Passive")
+
     def run_all_handlers(self, *args, **kwargs):
         """
         Will run all handlers that exist.
@@ -367,6 +386,7 @@ class Passive(Base):
     def run(self):
         self.init_logger('passive')
         logger = self.logger
+        logger.info("Starting Passive")
         logger.info("run()")
 
         # Check if there is a start delay
@@ -461,10 +481,16 @@ class Daemon():
         # to the currently set user and group so checks don't error out
         try:
             tmpdir = os.path.join(tempfile.gettempdir())
+            self.logger.debug("Checking temp dir for chown: %s", tmpdir)
             for file in os.listdir(tmpdir):
-                if os.path.isfile(file):
-                    if 'ncpa-' in file:
-                        self.chown(os.path.join(tmpdir, file))
+                full_path = os.path.join(tmpdir, file)
+                self.logger.debug("Checking temp file for chown: %s", full_path)
+                self.logger.debug("Temp file is a file: %s", os.path.isfile(full_path))
+
+                if os.path.isfile(full_path):
+                    if file.startswith('ncpa-') or file.endswith('.pem'):
+                        self.logger.debug("Chowning temp file: %s", file)
+                        self.chown(full_path)
         except OSError as e:
             self.logger.exception(e)
             pass
@@ -480,14 +506,14 @@ class Daemon():
 
     # This (ongoing NCPA) process is normally terminated by a different instance of this code launched with the '--stop' option.
     # The 'stop' instance reads the PID of the parent NCPA process and kills it by sending it SIGTERM. When SIGTERM is received, this
-    # function handels it by exiting, which also closes the subordinate processes.
+    # function handles it by exiting, which also closes the subordinate processes.
     def on_sigterm(self, signalnum, frame):
         global has_error
         """Handle sigterm and sigint"""
         self.logger.debug("on_sigterm(%s)", signalnum)
 
         # Forcing exit while in loop's sleep, doesn't always exit cleanly, so
-        # on first occurence (system always sends multiples for sigint), set has_error=True to break main loop
+        # on first occurrence (system always sends multiples for sigint), set has_error=True to break main loop
         if not self.has_error.value:
             self.has_error.value = True
             self.logger.debug("on_sigterm - set has_error = True")
@@ -663,13 +689,70 @@ class Daemon():
         if self.username:
             gids = [ g.gr_gid for g in grp.getgrall() if self.username in g.gr_mem ]
 
-        # Set the group, alt groups, and user
+        # Set the group first
         try:
             os.setgid(self.gid)
+        except OSError as err:
+            self.logger.exception("Failed to set group ID: %s", err)
+            raise
+
+        # Try to set supplementary groups - this can fail due to security restrictions
+        supplementary_groups_set = False
+        try:
             os.setgroups(gids)
+            supplementary_groups_set = True
+            self.logger.debug("Successfully set supplementary groups: %s", gids)
+        except OSError as err:
+            if (sys.platform == 'darwin' and err.errno == 1) or (sys.platform.startswith('sunos') and err.errno == 1):
+                # Operation not permitted on macOS or Solaris
+                platform_name = "macOS" if sys.platform == 'darwin' else "Solaris"
+                self.logger.warning("setgroups failed on %s (this is common due to security restrictions)", platform_name)
+                self.logger.info("Attempting alternative permission setup for %s...", platform_name)
+                
+                # On these platforms, try to ensure the user is at least in the primary group
+                # and warn about potential permission issues
+                try:
+                    # Verify the user can access group-owned resources by checking the primary group
+                    import pwd
+                    user_info = pwd.getpwuid(self.uid)
+                    self.logger.info("Running as user '%s' (uid:%d) with primary group '%s' (gid:%d)", 
+                                   user_info.pw_name, self.uid, grp.getgrgid(self.gid).gr_name, self.gid)
+                    
+                    # Warn about supplementary groups that couldn't be set
+                    if len(gids) > 1:
+                        missing_groups = [grp.getgrgid(gid).gr_name for gid in gids if gid != self.gid]
+                        self.logger.warning("Could not set supplementary groups on %s: %s", platform_name, missing_groups)
+                        self.logger.warning("This may cause permission issues accessing resources owned by these groups")
+                        self.logger.info("Consider adjusting file/directory permissions or group ownership if you encounter access issues")
+                        
+                except Exception as group_err:
+                    self.logger.error("Error while checking group information: %s", group_err)
+                    
+            else:
+                self.logger.exception("Failed to set supplementary groups: %s", err)
+                raise
+
+        # Finally set the user ID
+        try:
             os.setuid(self.uid)
-        except Exception as err:
-            self.logger.exception(err)
+        except OSError as err:
+            self.logger.exception("Failed to set user ID: %s", err)
+            raise
+            
+        # Final verification and helpful logging
+        try:
+            import pwd
+            current_user = pwd.getpwuid(os.getuid())
+            current_group = grp.getgrgid(os.getgid())
+            self.logger.info("Successfully dropped privileges to user '%s' (uid:%d, gid:%d)", 
+                           current_user.pw_name, os.getuid(), os.getgid())
+            
+            if not supplementary_groups_set and (sys.platform == 'darwin' or sys.platform.startswith('sunos')):
+                platform_name = "macOS" if sys.platform == 'darwin' else "Solaris"
+                self.logger.info("Note: Running with limited group membership due to %s security restrictions", platform_name)
+                
+        except Exception as verify_err:
+            self.logger.debug("Could not verify final user/group state: %s", verify_err)
 
     def chown(self, fn):
         """Change the ownership of a file to match the daemon uid/gid"""
@@ -683,9 +766,19 @@ class Daemon():
                 gid = os.stat(fn).st_gid
             try:
                 os.chown(fn, uid, gid)
+                # On macOS, ensure the file is readable/writable after chown
+                if sys.platform == 'darwin':
+                    if os.path.isdir(fn):
+                        os.chmod(fn, 0o755)
+                    else:
+                        os.chmod(fn, 0o644)
             except OSError as err:
-                sys.exit("Daemon - chown() - can't chown(%s, %d, %d): %s, %s" %
-                (repr(fn), uid, gid, err.errno, err.strerror))
+                self.logger.error("Daemon - chown() - can't chown(%s, %d, %d): %s, %s", 
+                                 repr(fn), uid, gid, err.errno, err.strerror)
+                # Don't exit on macOS chown errors - just log and continue
+                if sys.platform != 'darwin':
+                    sys.exit("Daemon - chown() - can't chown(%s, %d, %d): %s, %s" %
+                    (repr(fn), uid, gid, err.errno, err.strerror))
 
 
     def check_pid(self):
@@ -822,6 +915,7 @@ class Daemon():
     def daemonize(self):
         """Detach from the terminal and continue as a daemon"""
         self.logger.info("Daemon - daemonize()")
+        
         # swiped from twisted/scripts/twistd.py
         # See http://www.erlenstar.demon.co.uk/unix/faq_toc.html#TOC16
         if os.fork():   # launch child and...
@@ -830,14 +924,20 @@ class Daemon():
         if os.fork():   # launch child and...
             os._exit(0)  # kill off parent again.
         os.umask(63)  # 077 in octal
-        null = os.open('/dev/null', os.O_RDWR)
-        for i in range(3):
-            try:
-                os.dup2(null, i)
-            except OSError as e:
-                if e.errno != errno.EBADF:
-                    raise
-        os.close(null)
+        
+        # Ensure log files are still accessible after daemonizing
+        try:
+            null = os.open('/dev/null', os.O_RDWR)
+            for i in range(3):
+                try:
+                    os.dup2(null, i)
+                except OSError as e:
+                    if e.errno != errno.EBADF:
+                        raise
+            os.close(null)
+        except OSError as e:
+            # Log the error but don't fail - this might happen on some systems
+            self.logger.warning("daemonize - failed to redirect standard streams: %s", e)
 
 # Main class - Windows
 if __SYSTEM__ == 'nt':
@@ -857,7 +957,7 @@ if __SYSTEM__ == 'nt':
             win32serviceutil.ServiceFramework.__init__(self, args)
             # handle WaitStop event tells the SCM to stop the service
             self.hWaitStop = win32event.CreateEvent(None, 0, 0, None)
-            self.running = False
+            self.running_event = threading.Event()
 
             # child process handles (Passive, Listener)
             self.p, self.l = None, None
@@ -868,10 +968,6 @@ if __SYSTEM__ == 'nt':
 
             self.setup_plugins()
             self.logger.debug("Looking for plugins at: %s" % self.abs_plugin_path)
-
-            self.init_logger('listener')
-            for handler in self.logger.handlers:
-                handler.addFilter(tokenFilter)
 
 
         def init_logger(self, logger_name):
@@ -916,40 +1012,137 @@ if __SYSTEM__ == 'nt':
             logging.getLogger().setLevel(log_level)
 
         def SvcStop(self):
-            self.running = False
+            """
+            Stop the service
+            This triggers the stop event, which breaks the main loop
+            """
             self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+            self.running_event.clear()
             win32event.SetEvent(self.hWaitStop) # set stop event for main thread
 
-        def SvcDoRun(self):
-            # log starting of service to windows event log
-            servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
-                                servicemanager.PYS_SERVICE_STARTED,
-                                (self._svc_name_, ''))
-            self.running = True
-            self.main()
+        try:
+            def SvcRun(self):
+                """
+                Start the service
+                We need to override this method to prevent it reporting NCPA as started before the processes are started
+                """
+                try:
+                    self.ReportServiceStatus(win32service.SERVICE_START_PENDING)
+                    self.logger.debug("SvcRun() - Service start pending")
+                except Exception as e:
+                    self.logger.exception("SvcRun - Failed to report service start pending: %s", e)
+                    self.has_error.value = True
+                    self.ReportServiceStatus(win32service.SERVICE_STOPPED)
+                    return
+                self.logger.debug("SvcRun() - running SvcDoRun function")
+                self.SvcDoRun()
+
+                # Once SvcDoRun returns, the service has stopped
+                # log stopping of service to windows event log
+                try:
+                    servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
+                                    servicemanager.PYS_SERVICE_STOPPED,
+                                    (self._svc_name_, ''))
+                except Exception as e:
+                    self.logger.exception("SvcRun - Failed to log service stop: %s", e)
+
+        except Exception as e:
+            pass
+
+        try:
+            def SvcDoRun(self):
+                # log starting of service to windows event log
+                try:
+                    servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
+                                    servicemanager.PYS_SERVICE_STARTED,
+                                    (self._svc_name_, ''))
+                except Exception as e:
+                    self.logger.exception("SvcDoRun - Failed to log service start: %s", e)
+                try:
+                    self.running_event.set()
+                except Exception as e:
+                    self.logger.exception("SvcDoRun - Failed to set running event: %s", e)
+                try:
+                    self.logger.debug("SvcDoRun() - Running main function")
+                    self.main()
+                except Exception as e:
+                    self.logger.exception("SvcDoRun - Failed to run main: %s", e)
+                    self.has_error.value = True
+                    self.ReportServiceStatus(win32service.SERVICE_STOPPED)
+                    # log error to windows event log
+                    servicemanager.LogErrorMsg(servicemanager.EVENTLOG_ERROR_TYPE,
+                                            servicemanager.PYS_SERVICE_STOPPED,
+                                            (self._svc_name_, str(e)))
+        except Exception as e:
+            pass
+
+        def force_kill(self, proc, name):
+            try:
+                import os, signal, sys
+                if proc.is_alive():
+                    self.logger.warning(f"{name} process did not terminate cleanly. Attempting force kill...")
+                    if hasattr(proc, 'pid') and proc.pid:
+                        os.kill(proc.pid, signal.SIGTERM)
+                        proc.join(timeout=5)
+                        if proc.is_alive():
+                            self.logger.error(f"{name} process (PID {proc.pid}) could not be killed.")
+                    else:
+                        self.logger.error(f"{name} process has no PID; cannot force kill.")
+            except Exception as e:
+                self.logger.exception(f"Error force-killing {name} process: {e}")
 
         def main(self):
-            self.ReportServiceStatus(win32service.SERVICE_START_PENDING)
-            # instantiate child processes
-            self.p, self.l = start_processes(self.options, self.config, self.has_error)
-            self.ReportServiceStatus(win32service.SERVICE_RUNNING)
+            self.logger.debug("main() - Starting main function")
+            try:
+                ### TODO: Consider using gevent.threadpool.ThreadPoolExecutor or gipc for more compatible multiprocessing support
+                # https://github.com/gevent/gevent/blob/master/gevent/threadpool.py
+                # https://github.com/benjaminp/gipc
+                ### https://github.com/NagiosEnterprises/ncpa/issues/1291
 
-            # wait for stop event
-            while self.running: # shouldn't loop, but just in case the event triggers without stop being called
-                win32event.WaitForSingleObject(self.hWaitStop, win32event.INFINITE)
-                time.sleep(1)
+                # instantiate child processes
+                self.p, self.l = start_processes(self.options, self.config, self.has_error)
+                self.ReportServiceStatus(win32service.SERVICE_RUNNING,
+                                 win32service.SERVICE_ACCEPT_STOP | win32service.SERVICE_ACCEPT_SHUTDOWN)
+                self.logger.debug("self.p and self.l processes started")
+                self.logger.debug("value for self.p: %s", self.p)
+                self.logger.debug("value for self.l: %s", self.l)
 
-            # kill/clean up child processes
-            self.p.terminate()
-            self.l.terminate()
-            self.p.join()
-            self.l.join()
+                # wait for stop event
+                while self.running_event.is_set(): # shouldn't loop, but just in case the event triggers without stop being called
+                    result = win32event.WaitForSingleObject(self.hWaitStop, 1000)
+                    if result == win32event.WAIT_OBJECT_0:
+                        break
+                    time.sleep(0.1)
+            finally:
+                try:
+                    self.ReportServiceStatus(win32service.SERVICE_STOP_PENDING)
+                    self.logger.debug("SvcRun() - Service stop pending")
+                except Exception as e:
+                    self.logger.exception("SvcRun - Failed to report service stop pending: %s", e)
 
-            # log stopping of service to windows event log
-            servicemanager.LogMsg(servicemanager.EVENTLOG_INFORMATION_TYPE,
-                                servicemanager.PYS_SERVICE_STOPPED,
-                                (self._svc_name_, ''))
-            self.ReportServiceStatus(win32service.SERVICE_STOPPED)
+                # kill/clean up child processes
+                try:
+                    if self.p:
+                        self.logger.info("Terminating passive process...")
+                        self.p.terminate()
+                        self.p.join(timeout=10)
+                        if self.p.is_alive():
+                            self.logger.warning("Passive process did not terminate cleanly.")
+                            self.force_kill(self.p, "Passive")
+                    if self.l:
+                        self.logger.info("Terminating listener process...")
+                        self.l.terminate()
+                        self.l.join(timeout=10)
+                        if self.l.is_alive():
+                            self.logger.warning("Listener process did not terminate cleanly.")
+                            self.force_kill(self.l, "Listener")
+                    # Add any additional cleanup here (close files, sockets, etc.)
+                    self.logger.debug("self.p and self.l processes terminated")
+                    self.logger.debug("value for self.p: %s", self.p)
+                    self.logger.debug("value for self.l: %s", self.l)
+                    self.logger.info("Service cleanup complete. Exiting.")
+                except Exception as e:
+                    self.logger.exception("Error during service cleanup: %s", e)
 
 
 # --------------------------
@@ -1152,6 +1345,7 @@ def main(has_error):
     log.info("main - Python version: %s", sys.version)
     log.info("main - SSL version: %s", ssl.OPENSSL_VERSION)
     log.info("main - ZLIB version: %s", zlib_version)
+    log.info("main - psutil version: %s", psutil.__version__)
 
     if __SYSTEM__ == 'nt':
         for sectionName, configSection in config.items():

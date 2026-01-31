@@ -1,7 +1,7 @@
 FROM debian:bookworm
 
 RUN apt-get update && \
-    apt-get -y install git curl python3-pip sudo libssl-dev && \
+    apt-get -y install git curl python3-pip sudo libssl-dev python3.11-venv && \
     apt-get clean && \
     git clone https://github.com/mhzawadi/ncpa.git /ncpa;
 

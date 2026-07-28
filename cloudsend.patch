@@ -1,0 +1,29 @@
+diff --git a/cloudsend.sh b/cloudsend.sh
+index 9045cee..0f96c86 100755
+--- a/cloudsend.sh
++++ b/cloudsend.sh
+@@ -59,6 +59,7 @@ FULLPATHENC=''
+ 
+ # Calls constants
+ PUBSUFFIX="public.php/webdav"
++MY_DAV_SUFFIX="public.php/dav/files/"
+ HEADER='X-Requested-With: XMLHttpRequest'
+ 
+ # Execution parameters
+@@ -534,13 +535,13 @@ sendFile() {
+ 
+         # Send file
+         if hasUserAgent; then
+-                resp="$(COLUMNS=$TERMCOLS "$CURLBIN"$LIMITCMD$INSECURE$REFERER$VERBOSE$GLOBCMD -A "$USERAGENT" -T "$1" -u "$FOLDERTOKEN":"$PASSWORD" -H "$HEADER" "$CLOUDURL/$PUBSUFFIX$FULLPATHENC/$eout")"
++                resp="$(COLUMNS=$TERMCOLS "$CURLBIN"$LIMITCMD$INSECURE$REFERER$VERBOSE$GLOBCMD -A "$USERAGENT" -T "$1" -u "$FOLDERTOKEN":"$PASSWORD" -H "$HEADER" "$CLOUDURL/$MY_DAV_SUFFIX$FOLDERTOKEN$FULLPATHENC/$eout")"
+                 stat=$?
+         else
+-                                resp="$(COLUMNS=$TERMCOLS "$CURLBIN"$LIMITCMD$INSECURE$REFERER$VERBOSE$GLOBCMD -T "$1" -u "$FOLDERTOKEN":"$PASSWORD" -H "$HEADER" "$CLOUDURL/$PUBSUFFIX$FULLPATHENC/$eout")"
++                                resp="$(COLUMNS=$TERMCOLS "$CURLBIN"$LIMITCMD$INSECURE$REFERER$VERBOSE$GLOBCMD -T "$1" -u "$FOLDERTOKEN":"$PASSWORD" -H "$HEADER" "$CLOUDURL/$MY_DAV_SUFFIX$FOLDERTOKEN$FULLPATHENC/$eout")"
+                 stat=$?
+         fi
+-        #echo "$CURLBIN"$LIMITCMD$INSECURE$REFERER$VERBOSE$GLOBCMD -T "$1" -u "$FOLDERTOKEN":"$PASSWORD" -H "$HEADER" "$CLOUDURL/$PUBSUFFIX$FULLPATHENC/$eout"
++        #echo "$CURLBIN"$LIMITCMD$INSECURE$REFERER$VERBOSE$GLOBCMD -T "$1" -u "$FOLDERTOKEN":"$PASSWORD" -H "$HEADER" "$CLOUDURL/$MY_DAV_SUFFIX$FOLDERTOKEN$FULLPATHENC/$eout"
+         isNotEmpty "$resp" && curlAddResponse "SEND FILE ERROR FOR \"$1\""$'\n'"$resp"
+         curlAddExitCode $stat
+         checkAbort # exits if DAV errors AND not ignoring them

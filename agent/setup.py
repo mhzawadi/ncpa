@@ -63,8 +63,7 @@ if __SYSTEM__ == 'nt':
                      ('../build/resources/ncpa.ico'                     , 'build_resources/ncpa.ico'),
                      ('../build/resources/nagios_installer.bmp'         , 'build_resources/nagios_installer.bmp'),
                      ('../build/resources/nagios_installer_logo.bmp'    , 'build_resources/nagios_installer_logo.bmp'),
-                     ('../build/resources/ncpa.nsi'                     , 'build_resources/ncpa.nsi'),
-                     (sys.executable                                    , 'python.exe')]
+                     ('../build/resources/ncpa.nsi'                     , 'build_resources/ncpa.nsi')]
 
     # include pywin32 modules
     packages += ['win32serviceutil', 'win32service', 'win32event', 'servicemanager', 'win32timezone']
@@ -79,8 +78,7 @@ elif __SYSTEM__ == 'posix':
 
     include_files += [('../startup/default-plist'   , 'build_resources/default-plist'),
                       ('../startup/default-init'    , 'build_resources/default-init'),
-                      ('../startup/default-service' , 'build_resources/default-service'),
-                      (os.path.join(sys.executable) , 'python')]
+                      ('../startup/default-service' , 'build_resources/default-service')]
 
     # Shared library include overrides
     bin_includes += get_linux_lib_includes()
@@ -99,17 +97,16 @@ elif __SYSTEM__ == 'posix':
 
     # Special includes for AIX systems
     if 'aix' in sys.platform:
-        include_files += [('/opt/freeware/lib/libpython3.6.so'  , 'libpython3.6.so'),
-                          ('/usr/lib/libsqlite3.a'              , 'libsqlite3.a'),
-                          ('/usr/lib/libssl.so'                 , 'libssl.so'),
-                          ('/usr/lib/libcrypto.so'              , 'libcrypto.so'),
-                          ('/usr/lib/libcrypto.a'               , 'libcrypto.a'),
-                          ('/usr/lib/libffi.a'                  , 'libffi.a'),
-                          ('/opt/freeware/lib/libgcc_s.a'       , 'libgcc_s.a')]
+        include_files += [('/opt/freeware/lib/libpython3.12.a'  , 'build_resources/libpython3.12.a'),
+                          ('/usr/lib/libsqlite3.a'              , 'build_resources/libsqlite3.a'),
+                          ('/usr/lib/libcrypto.a'               , 'build_resources/libcrypto.a'),
+                          ('/opt/freeware/lib/libgcc_s.a'       , 'build_resources/libgcc_s.a'),
+                          ('../build/aix/aix-ncpa-service.sh'   , 'bin/aix-ncpa-service.sh')]
 
     # Special includes for Solaris systems
     if 'sunos' in sys.platform.lower():
         include_files += get_solaris_lib_paths()
+        include_files += [('../build/solaris/admin_file', 'admin_file')]
 
     binary = Executable('ncpa.py', base=None)
 

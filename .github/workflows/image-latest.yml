@@ -31,5 +31,15 @@ jobs:
           - /sys/fs/cgroup:/sys/fs/cgroup:ro
         options: --cpus 1
       steps:
+        - name: Prepare
+          id: prepare
+          run: |
+            VERSION=${GITHUB_REF#refs/tags/v}
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "version=${VERSION}"
         - name: Check for dockerenv file
           run: /start.sh
+        - uses: ncipollo/release-action@v1
+          with:
+            artifacts: "/ncpa/build/*.deb"
+            body: "View full [changelog](https://github.com/NagiosEnterprises/ncpa/blob/${{ steps.prepare.outputs.version }}/CHANGES.rst) for more information."
